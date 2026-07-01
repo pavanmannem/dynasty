@@ -86,6 +86,7 @@ def load_projections(weights: Dict[str, float], use_cache: bool = True,
             "injury_status": p.get("injury_status"), "years_exp": p.get("years_exp"),
             "position": p.get("position") or (fpos[0] if fpos else None),
             "fantasy_positions": fpos,
+            "sleeper_pid": rec.get("player_id"),
             "stats": stats,
         }
     return out

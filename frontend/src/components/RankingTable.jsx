@@ -28,7 +28,7 @@ export default function RankingTable({ players, config, onConfigChange, onSelect
   const [search, setSearch] = useState('')
   const [pos, setPos] = useState('')
   const [team, setTeam] = useState('')
-  const [hideDrafted, setHideDrafted] = useState(false)
+  const [show, setShow] = useState('all')   // all | available | drafted | watched
   const [showConfig, setShowConfig] = useState(false)
   const cfg = config
 
@@ -42,14 +42,16 @@ export default function RankingTable({ players, config, onConfigChange, onSelect
     if (search) { const q = search.toLowerCase(); r = r.filter((p) => (p.name || '').toLowerCase().includes(q) || (p.team || '').toLowerCase().includes(q)) }
     if (pos) r = r.filter((p) => eligOf(p).includes(pos))
     if (team) r = r.filter((p) => p.team === team)
-    if (hideDrafted) r = r.filter((p) => !p.drafted)
+    if (show === 'available') r = r.filter((p) => !p.drafted)
+    else if (show === 'drafted') r = r.filter((p) => p.drafted)
+    else if (show === 'watched') r = r.filter((p) => p.watched)
     const dir = sortDir === 'asc' ? 1 : -1
     return [...r].sort((a, b) => {
       const av = cellVal(a, sortKey), bv = cellVal(b, sortKey)
       if (typeof av === 'string') return dir * (av || '').localeCompare(bv || '')
       return dir * ((av ?? -1) - (bv ?? -1))
     })
-  }, [players, search, pos, team, hideDrafted, sortKey, sortDir])
+  }, [players, search, pos, team, show, sortKey, sortDir])
 
   const clickSort = (k) => {
     if (k === sortKey) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
@@ -73,7 +75,12 @@ export default function RankingTable({ players, config, onConfigChange, onSelect
           <option value="">All teams</option>
           {teams.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
-        <button className={'btn sm toggle-btn' + (hideDrafted ? ' active' : '')} onClick={() => setHideDrafted((s) => !s)}>Hide drafted</button>
+        <select className="filter" value={show} onChange={(e) => setShow(e.target.value)}>
+          <option value="all">All players</option>
+          <option value="available">Available</option>
+          <option value="drafted">Drafted</option>
+          <option value="watched">Watched ★</option>
+        </select>
         <button className="btn sm" onClick={() => setShowConfig((s) => !s)}>{showConfig ? 'Hide' : 'Tune'} model</button>
       </div>
 

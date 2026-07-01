@@ -93,9 +93,13 @@ tweak a slider and the whole board updates.
 ## Live draft feed
 The board is wired to the league's **Sleeper auction draft** (`config.DRAFT_ID`, public — no
 auth). The backend polls it server-side, so as picks happen players are marked **drafted $X**
-with the owner, the $ curve re-calibrates on real prices, and the most recent pick shows top-right
-(click it to open that player). The frontend re-polls every 15s. Point it at another league by
-setting the `SLEEPER_DRAFT_ID` env var.
+with the owner and the $ curve re-calibrates on real prices. The **Show** filter switches the
+board between All / Available / Drafted / Watched. Point it at another league via the
+`SLEEPER_DRAFT_ID` env var.
+
+**Watched players** (the ★ filter) come from your personal Sleeper watch list, which is
+user-specific and needs a session token — set `SLEEPER_TOKEN` (never commit it). Without it the
+Watched filter just shows nothing; the public draft feed is unaffected.
 
 ## Deploy to Vercel
 The backend is stateless: SQLite ships read-only and all tunable config lives in the browser

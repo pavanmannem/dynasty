@@ -22,6 +22,9 @@ MIN_REQUEST_INTERVAL = 0.12                 # polite spacing between ESPN calls
 SLEEPER_YEAR = 2026                         # 2026-27 projections
 # Live Sleeper auction draft (public, no auth). Overridable via env for other leagues.
 DRAFT_ID = os.environ.get("SLEEPER_DRAFT_ID", "1375883645973176320")
+# Watched-players list is user-specific -> needs a Sleeper session token. Set via
+# env only (never commit it). Empty => the watched filter is simply disabled.
+SLEEPER_TOKEN = os.environ.get("SLEEPER_TOKEN", "")
 
 # --- League scoring (Westlake 512 — exact points settings) -----------------
 # Applied to per-game averages. Missed FG/FT are derived (attempts - makes).

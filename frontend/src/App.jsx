@@ -52,24 +52,10 @@ export default function App() {
 
   if (loading || !config) return <div className="app"><div className="loading">Loading…</div></div>
 
-  const lp = draft && draft.latest
   return (
     <div className="app">
       <div className="topbar">
         <div className="brand"><span className="logo-orb" />dynasty</div>
-        {lp && (
-          <button
-            className={'last-pick' + (lp.id_player ? ' clickable' : '')}
-            onClick={() => lp.id_player && setSelected(lp.id_player)}
-            title={lp.id_player ? 'Open player' : ''}
-          >
-            <span className="lp-tag">● {draft.status === 'complete' ? 'Last pick' : 'On the board'}</span>
-            <span className="lp-body">
-              <span className="lp-name">{lp.name}</span>
-              <span className="lp-meta">{lp.amount != null ? '$' + lp.amount : ''}{lp.owner ? ' · ' + lp.owner : ''} · pick {lp.pick_no}</span>
-            </span>
-          </button>
-        )}
       </div>
 
       <RankingTable players={players} config={config} onConfigChange={onConfigChange} onSelect={setSelected} />

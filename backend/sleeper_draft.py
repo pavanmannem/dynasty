@@ -92,3 +92,36 @@ def drafted_map(draft_id: str) -> Dict[str, Dict[str, Any]]:
 def latest_pick(draft_id: str) -> Optional[Dict[str, Any]]:
     picks = fetch_draft(draft_id)["picks"]
     return max(picks, key=lambda p: (p["pick_no"] or 0)) if picks else None
+
+
+# --- watched players (user-specific, needs a token) ------------------------
+_watched: Dict[str, Any] = {"ts": 0.0, "token": None, "ids": None}
+WATCHED_TTL = 30
+
+
+def fetch_watched(token: str, use_cache: bool = True) -> set:
+    """Set of Sleeper player_ids the user has starred. Empty set if no token."""
+    if not token:
+        return set()
+    now = time.time()
+    if (use_cache and _watched["ids"] is not None and _watched["token"] == token
+            and now - _watched["ts"] < WATCHED_TTL):
+        return _watched["ids"]
+    body = json.dumps({"operationName": "watched_players", "variables": {},
+                       "query": 'query watched_players { watched_players(sport: "nba"){ player_id } }'
+                       }).encode("utf-8")
+    req = urllib.request.Request(GQL_URL, data=body, headers={
+        "content-type": "application/json",
+        "x-sleeper-graphql-op": "watched_players",
+        "authorization": token,
+        "user-agent": "Mozilla/5.0",
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            payload = json.load(resp)
+    except Exception:
+        return _watched["ids"] or set()
+    wp = ((payload or {}).get("data") or {}).get("watched_players") or []
+    ids = {str(w.get("player_id")) for w in wp if w.get("player_id")}
+    _watched.update(ts=now, token=token, ids=ids)
+    return ids

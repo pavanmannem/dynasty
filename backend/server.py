@@ -49,6 +49,7 @@ def _load_all(conn, cfg: Dict[str, Any]) -> Dict[str, Any]:
     # it also re-calibrates the $ curve as real prices come in. Falls back to the
     # bundled seed if the feed is unavailable.
     live = sleeper_draft.drafted_map(_config.DRAFT_ID)
+    watched_ids = sleeper_draft.fetch_watched(_config.SLEEPER_TOKEN)
     scores = []
     for pid, p in players.items():
         ov = dict(overrides.get(pid) or db.get_override(conn, pid))
@@ -57,7 +58,11 @@ def _load_all(conn, cfg: Dict[str, Any]) -> Dict[str, Any]:
             ov["drafted"] = 1 if pick else 0
             ov["draft_price"] = pick["amount"] if pick else None
             ov["draft_owner"] = pick["owner"] if pick else None
-        scores.append(scoring.player_score(p, seasons.get(pid, []), ov, projections.get(pid), cfg))
+        pr = projections.get(pid)
+        s = scoring.player_score(p, seasons.get(pid, []), ov, pr, cfg)
+        spid = (pr or {}).get("sleeper_pid")
+        s["watched"] = 1 if (spid and str(spid) in watched_ids) else 0
+        scores.append(s)
     ranked = scoring.assign_values(scores, cfg)
     # Attach the Sleeper dynasty-ADP consensus rank for divergence comparison.
     for i, s in enumerate(sorted([x for x in ranked if x.get("adp_dynasty")],
@@ -84,7 +89,7 @@ _LIST_FIELDS = ("rank", "id_player", "name", "team", "position", "age", "latest_
                 "s_pts", "s_reb", "s_ast", "s_blk", "s_stl", "s_fg_pct", "s_fg3_pct", "s_ts", "s_fpg",
                 "raw_score", "value", "auto_value",
                 "var", "drafted", "draft_price", "draft_owner", "market_delta",
-                "n_seasons", "experience", "injury_status", "headshot", "sleeper_rank")
+                "n_seasons", "experience", "injury_status", "headshot", "sleeper_rank", "watched")
 
 
 @app.get("/api/meta")

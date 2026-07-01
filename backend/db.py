@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS overrides (
 
 CREATE TABLE IF NOT EXISTS projections (
     id_player TEXT PRIMARY KEY,
-    adp_dynasty REAL, proj_fpg REAL, injury_status TEXT, sleeper_pos TEXT, elig_pos TEXT,
+    adp_dynasty REAL, proj_fpg REAL, injury_status TEXT, sleeper_pos TEXT, elig_pos TEXT, sleeper_pid TEXT,
     pts REAL, reb REAL, ast REAL, stl REAL, blk REAL, tov REAL,
     fgm REAL, fga REAL, ftm REAL, fta REAL, fg3m REAL, fg3a REAL,
     dreb REAL, dd REAL, td REAL
@@ -191,11 +191,11 @@ def all_overrides(conn: sqlite3.Connection) -> Dict[str, Dict[str, Any]]:
 # --- projections (Sleeper) -------------------------------------------------
 
 def upsert_projection(conn: sqlite3.Connection, id_player: str, proj: Dict[str, Any]) -> None:
-    cols = ["id_player", "adp_dynasty", "proj_fpg", "injury_status", "sleeper_pos", "elig_pos"] + PROJ_COLS
+    cols = ["id_player", "adp_dynasty", "proj_fpg", "injury_status", "sleeper_pos", "elig_pos", "sleeper_pid"] + PROJ_COLS
     stats = proj.get("stats") or {}
     elig = ",".join(proj.get("fantasy_positions") or ([] if not proj.get("position") else [proj["position"]]))
     vals = [id_player, proj.get("adp_dynasty"), proj.get("proj_fpg"),
-            proj.get("injury_status"), proj.get("position"), elig]
+            proj.get("injury_status"), proj.get("position"), elig, proj.get("sleeper_pid")]
     vals += [stats.get(c) for c in PROJ_COLS]
     ph = ",".join(["?"] * len(cols))
     upd = ",".join("{c}=excluded.{c}".format(c=c) for c in cols if c != "id_player")
