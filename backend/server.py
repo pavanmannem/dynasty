@@ -1,0 +1,231 @@
+"""FastAPI serving layer (ESPN data).
+
+Scores recompute per request from raw stats + current config + overrides, so
+live config-slider and qualitative-override changes reflect immediately.
+
+Run:  python -m uvicorn api:app --port 8000   (from backend/)
+"""
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional
+
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+import db
+import scoring
+
+app = FastAPI(title="Dynasty NBA Valuation Engine")
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+
+import json as _json
+import config as _config
+
+
+def _cfg_from_request(config_param: Optional[str], conn) -> Dict[str, Any]:
+    """Config is owned by the browser (localStorage) and passed per request, so
+    the serverless function never has to write. Falls back to the bundled config."""
+    if config_param:
+        cfg = dict(_config.DEFAULT_CONFIG)
+        try:
+            cfg.update(_json.loads(config_param))
+        except (ValueError, TypeError):
+            pass
+        return cfg
+    return db.get_config(conn)
+
+
+def _load_all(conn, cfg: Dict[str, Any]) -> Dict[str, Any]:
+    players = {r["id_player"]: dict(r) for r in conn.execute("SELECT * FROM players").fetchall()}
+    seasons: Dict[str, List[Dict[str, Any]]] = {}
+    for r in conn.execute("SELECT * FROM player_seasons").fetchall():
+        seasons.setdefault(r["id_player"], []).append(dict(r))
+    overrides = db.all_overrides(conn)
+    projections = db.all_projections(conn)
+    scores = []
+    for pid, p in players.items():
+        ov = overrides.get(pid) or db.get_override(conn, pid)
+        scores.append(scoring.player_score(p, seasons.get(pid, []), ov, projections.get(pid), cfg))
+    ranked = scoring.assign_values(scores, cfg)
+    # Attach the Sleeper dynasty-ADP consensus rank for divergence comparison.
+    for i, s in enumerate(sorted([x for x in ranked if x.get("adp_dynasty")],
+                                 key=lambda x: x["adp_dynasty"]), 1):
+        s["sleeper_rank"] = i
+    return {"cfg": cfg, "ranked": ranked, "seasons": seasons}
+
+
+def _tier(v: float) -> str:
+    if v >= 120:
+        return "elite"
+    if v >= 60:
+        return "star"
+    if v >= 25:
+        return "starter"
+    if v >= 8:
+        return "rotation"
+    return "flyer"
+
+
+_LIST_FIELDS = ("rank", "id_player", "name", "team", "position", "age", "latest_fpg", "bps",
+                "gp_rate", "av_mult", "age_mult", "production", "production_source", "from_projection",
+                "proj_fpg", "proj_pts", "proj_reb", "proj_ast", "sleeper_pos", "elig_pos", "adp_dynasty",
+                "raw_score", "value", "auto_value",
+                "var", "drafted", "draft_price", "draft_owner", "market_delta",
+                "n_seasons", "experience", "injury_status", "headshot", "sleeper_rank")
+
+
+@app.get("/api/meta")
+def meta() -> Dict[str, Any]:
+    conn = db.connect()
+    try:
+        cfg = dict(_config.DEFAULT_CONFIG)  # canonical calibrated defaults (not a mutable DB row)
+        counts = {
+            "players": conn.execute("SELECT COUNT(*) FROM players").fetchone()[0],
+            "with_stats": conn.execute("SELECT COUNT(DISTINCT id_player) FROM player_seasons").fetchone()[0],
+            "teams": conn.execute("SELECT COUNT(*) FROM teams").fetchone()[0],
+            "drafted": conn.execute("SELECT COUNT(*) FROM overrides WHERE drafted=1").fetchone()[0],
+        }
+        seasons = [r[0] for r in conn.execute(
+            "SELECT DISTINCT season FROM player_seasons ORDER BY season DESC").fetchall()]
+        return {"config": cfg, "counts": counts, "seasons": seasons}
+    finally:
+        conn.close()
+
+
+@app.get("/api/players")
+def list_players(config: Optional[str] = None) -> List[Dict[str, Any]]:
+    conn = db.connect()
+    try:
+        cfg = _cfg_from_request(config, conn)
+        out = []
+        for s in _load_all(conn, cfg)["ranked"]:
+            row = {k: s.get(k) for k in _LIST_FIELDS}
+            row["tier"] = _tier(s["value"])
+            out.append(row)
+        return out
+    finally:
+        conn.close()
+
+
+@app.get("/api/players/{id_player}")
+def player_detail(id_player: str, config: Optional[str] = None) -> Dict[str, Any]:
+    conn = db.connect()
+    try:
+        prow = conn.execute("SELECT * FROM players WHERE id_player=?", (id_player,)).fetchone()
+        if prow is None:
+            raise HTTPException(404, "player not found")
+        player = dict(prow)
+        cfg = _cfg_from_request(config, conn)
+        seasons = [dict(r) for r in conn.execute(
+            "SELECT * FROM player_seasons WHERE id_player=? ORDER BY season DESC", (id_player,)).fetchall()]
+        ov = db.get_override(conn, id_player)
+        prow2 = conn.execute("SELECT * FROM projections WHERE id_player=?", (id_player,)).fetchone()
+        projection = dict(prow2) if prow2 else None
+        score = scoring.player_score(player, seasons, ov, projection, cfg)
+        for s in _load_all(conn, cfg)["ranked"]:  # pool-accurate rank/value + sleeper rank
+            if s["id_player"] == id_player:
+                score.update({k: s.get(k) for k in ("rank", "value", "auto_value", "var",
+                                                    "market_delta", "sleeper_rank")})
+                break
+
+        # Explain the value: FP/G category breakdown of the production basis + TS%.
+        w = cfg["scoring_weights"]
+        if score.get("from_projection") and projection:
+            basis, basis_label = projection, "2026-27 projection"
+        elif seasons:
+            basis, basis_label = seasons[0], seasons[0]["season"]
+        else:
+            basis, basis_label = None, None
+        breakdown = scoring.fp_breakdown(basis, w) if basis else []
+        ts = scoring.true_shooting(basis) if basis else None
+
+        team = conn.execute("SELECT * FROM teams WHERE id_team=?", (player.get("id_team"),)).fetchone()
+        return {"player": player, "team": dict(team) if team else None, "score": score,
+                "seasons": seasons, "projection": projection, "breakdown": breakdown,
+                "basis_label": basis_label, "true_shooting": ts,
+                "tier": _tier(score.get("value", 0))}
+    finally:
+        conn.close()
+
+
+class ConfigPatch(BaseModel):
+    n_teams: Optional[int] = None
+    roster_spots: Optional[int] = None
+    budget_per_team: Optional[float] = None
+    min_bid: Optional[float] = None
+    lambda_av: Optional[float] = None
+    theta: Optional[float] = None
+    star_floor: Optional[float] = None
+    convexity: Optional[float] = None
+    recency_weights: Optional[List[float]] = None
+
+
+@app.get("/api/config")
+def get_cfg() -> Dict[str, Any]:
+    conn = db.connect()
+    try:
+        return db.get_config(conn)
+    finally:
+        conn.close()
+
+
+@app.put("/api/config")
+def put_cfg(patch: ConfigPatch) -> Dict[str, Any]:
+    if _config.READONLY:
+        raise HTTPException(405, "config is client-side in this deployment; pass ?config=")
+    conn = db.connect()
+    try:
+        cfg = db.get_config(conn)
+        for k, v in patch.dict(exclude_none=True).items():
+            cfg[k] = v
+        db.set_config(conn, cfg)
+        return cfg
+    finally:
+        conn.close()
+
+
+class OverridePatch(BaseModel):
+    prospect_tier: Optional[str] = None
+    proj_fpg: Optional[float] = None
+    injury_risk: Optional[str] = None
+    role_adj: Optional[float] = None
+    manual_value: Optional[float] = None
+    notes: Optional[str] = None
+    drafted: Optional[int] = None
+    draft_price: Optional[float] = None
+    draft_owner: Optional[str] = None
+    clear_manual_value: Optional[bool] = None
+    clear_proj_fpg: Optional[bool] = None
+
+
+@app.put("/api/overrides/{id_player}")
+def put_override(id_player: str, patch: OverridePatch) -> Dict[str, Any]:
+    if _config.READONLY:
+        raise HTTPException(405, "read-only deployment")
+    conn = db.connect()
+    try:
+        data = patch.dict(exclude_none=True)
+        if data.pop("clear_manual_value", False):
+            data["manual_value"] = None
+        if data.pop("clear_proj_fpg", False):
+            data["proj_fpg"] = None
+        db.set_override(conn, id_player, data)
+        prow = dict(conn.execute("SELECT * FROM players WHERE id_player=?", (id_player,)).fetchone())
+        seasons = [dict(r) for r in conn.execute(
+            "SELECT * FROM player_seasons WHERE id_player=?", (id_player,)).fetchall()]
+        cfg = db.get_config(conn)
+        ov = db.get_override(conn, id_player)
+        prow2 = conn.execute("SELECT * FROM projections WHERE id_player=?", (id_player,)).fetchone()
+        projection = dict(prow2) if prow2 else None
+        return {"override": ov, "score": scoring.player_score(prow, seasons, ov, projection, cfg)}
+    finally:
+        conn.close()
+
+
+import os
+_DIST = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend", "dist")
+if os.path.isdir(_DIST):
+    from fastapi.staticfiles import StaticFiles
+    app.mount("/", StaticFiles(directory=_DIST, html=True), name="frontend")

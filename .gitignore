@@ -1,0 +1,24 @@
+# dependencies
+node_modules/
+.venv/
+venv/
+
+# python
+__pycache__/
+*.pyc
+
+# frontend build
+frontend/dist/
+
+# data: commit the read-only DB (runtime data), ignore caches/regenerables
+data/cache/
+data/*.json
+data/*.log
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# local tooling / os
+.claude/
+.vercel/
+.DS_Store
