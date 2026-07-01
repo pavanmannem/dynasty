@@ -46,7 +46,19 @@ function StatRow({ label, team, s, cls, computedPct }) {
 export default function PlayerView({ id, config, onBack }) {
   const [d, setD] = useState(null)
   useEffect(() => { setD(null); getPlayer(id, config).then(setD) }, [id, config])
-  if (!d) return <div className="loading">Loading…</div>
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onBack() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onBack])
+
+  const onBackdrop = (e) => { if (e.target === e.currentTarget) onBack() }
+  const closeBtn = (
+    <button className="modal-close" onClick={onBack} aria-label="Close (Esc)">
+      <span className="x">✕</span><span className="esc">Esc</span>
+    </button>
+  )
+  if (!d) return <div className="modal-backdrop" onClick={onBackdrop}>{closeBtn}<div className="loading">Loading…</div></div>
 
   const { player: p, score: sc, seasons, projection: proj, breakdown, basis_label, true_shooting: ts } = d
   const photo = p.headshot
@@ -60,9 +72,9 @@ export default function PlayerView({ id, config, onBack }) {
     : gap < 0 ? `We rank him ${-gap} spots higher than consensus` : `We rank him ${gap} spots lower than consensus`
 
   return (
-    <div className="fade">
-      <button className="btn ghost pv-back" onClick={onBack}>← Rankings</button>
-
+    <div className="modal-backdrop" onClick={onBackdrop}>
+      {closeBtn}
+      <div className="modal fade">
       <div className="pv-hero">
         <div className="pv-hero-art" style={{ backgroundImage: playerGradient(p.id_player) }} />
         <div className="pv-hero-inner">
@@ -72,7 +84,9 @@ export default function PlayerView({ id, config, onBack }) {
             <div className="pv-sub">
               {p.team_name} · {(sc.elig_pos || sc.sleeper_pos || p.position || '').split(',').join('/')} · Age {sc.age ?? '—'}
               {p.experience != null ? ` · ${p.experience === 0 ? 'Rookie' : p.experience + ' yr'}` : ''}
-              {sc.from_projection ? <span className="chip-mini proj">2026-27 projection</span> : <span className="chip-mini">from history</span>}
+              {sc.production_source === 'projection' ? <span className="chip-mini proj">2026-27 projection</span>
+                : sc.production_source === 'recent' ? <span className="chip-mini proj">2025-26 form</span>
+                  : <span className="chip-mini">career avg</span>}
               {sc.drafted ? <span className="chip-mini gone">drafted ${sc.draft_price} · {sc.draft_owner}</span> : null}
               {p.injury_status && p.injury_status !== 'Active' ? <span className="chip-mini gone">{p.injury_status}</span> : null}
             </div>
@@ -145,7 +159,12 @@ export default function PlayerView({ id, config, onBack }) {
               <span className="val">{sc.raw_score.toFixed(1)}</span>
             </div>
             <div className="pipe-row final">
-              <span className="lbl">Auction value</span>
+              <span className="lbl">Auction value
+                <span className="tip">
+                  <span className="tip-icon">?</span>
+                  <span className="tip-body">The <b>composite score</b> above is ranked against every player. Only the amount <b>above the last draftable player</b> (replacement level) is worth money. That surplus is steepened so stars pull ahead, then scaled so all {config.n_teams} teams' bids add up to the <b>${config.n_teams * config.budget_per_team} league budget</b>. That is this player's dollar value.</span>
+                </span>
+              </span>
               <span className="val">${Math.round(sc.value)}</span>
             </div>
             {sc.drafted ? (
@@ -180,6 +199,7 @@ export default function PlayerView({ id, config, onBack }) {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   )

@@ -3,22 +3,23 @@ import React, { useMemo, useState } from 'react'
 const COLS = [
   { key: 'rank', label: '#', w: '30px' },
   { key: 'name', label: 'Player', align: 'left' },
-  { key: 'pos', label: 'Pos', align: 'left' },
+  { key: 'pos', label: 'POS', align: 'left' },
   { key: 'age', label: 'Age' },
-  { key: 'value', label: '$ Value' },
-  { key: 'proj_pts', label: 'PTS' },
-  { key: 'proj_reb', label: 'REB' },
-  { key: 'proj_ast', label: 'AST' },
-  { key: 'latest_fpg', label: "FP/G '25" },
-  { key: 'proj_fpg', label: "Proj '26" },
-  { key: 'production', label: 'Prod' },
-  { key: 'raw_score', label: 'Comp' },
-  { key: 'sleeper_rank', label: 'Sleeper' },
+  { key: 's_pts', label: 'PTS' },
+  { key: 's_reb', label: 'REB' },
+  { key: 's_ast', label: 'AST' },
+  { key: 's_blk', label: 'BLK' },
+  { key: 's_stl', label: 'STL' },
+  { key: 's_fg_pct', label: 'FG%' },
+  { key: 's_fg3_pct', label: '3P%' },
+  { key: 's_ts', label: 'TS%' },
+  { key: 's_fpg', label: 'FP/G' },
+  { key: 'value', label: 'Value' },
 ]
 const eligOf = (p) => (p.elig_pos || p.sleeper_pos || '').split(',').map((x) => x.trim()).filter(Boolean)
 const posDisplay = (p) => eligOf(p).join('/') || (p.position || '—')
 const n1 = (x) => (x == null ? '—' : Number(x).toFixed(1))
-const n0 = (x) => (x == null ? '—' : Math.round(x))
+const pctd = (x) => (x == null ? '—' : (Number(x) * 100).toFixed(1))
 const posSort = (v) => ({ PG: 1, SG: 2, SF: 3, PF: 4, C: 5 }[v] || 9)
 
 export default function RankingTable({ players, config, onConfigChange, onSelect }) {
@@ -63,7 +64,7 @@ export default function RankingTable({ players, config, onConfigChange, onSelect
   return (
     <div className="fade">
       <div className="toolbar">
-        <input className="search" placeholder="Search player or team…" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <input className="search" placeholder="Search player" value={search} onChange={(e) => setSearch(e.target.value)} />
         <select className="filter" value={pos} onChange={(e) => setPos(e.target.value)}>
           <option value="">All positions</option>
           {positions.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -118,16 +119,17 @@ export default function RankingTable({ players, config, onConfigChange, onSelect
                   </div>
                 </td>
                 <td className="left pos-pill">{posDisplay(p)}</td>
-                <td className="num">{p.age ?? '—'}</td>
+                <td className="num">{p.age != null ? Math.round(p.age) : '—'}</td>
+                <td className="num">{n1(p.s_pts)}</td>
+                <td className="num">{n1(p.s_reb)}</td>
+                <td className="num">{n1(p.s_ast)}</td>
+                <td className="num">{n1(p.s_blk)}</td>
+                <td className="num">{n1(p.s_stl)}</td>
+                <td className="num">{pctd(p.s_fg_pct)}</td>
+                <td className="num">{pctd(p.s_fg3_pct)}</td>
+                <td className="num">{pctd(p.s_ts)}</td>
+                <td className="num">{n1(p.s_fpg)}</td>
                 <td><span className="value"><span className="dollar">$</span>{Math.round(p.value)}</span></td>
-                <td className="num">{n1(p.proj_pts)}</td>
-                <td className="num">{n1(p.proj_reb)}</td>
-                <td className="num">{n1(p.proj_ast)}</td>
-                <td className="num">{n1(p.latest_fpg)}</td>
-                <td className="num">{n1(p.proj_fpg)}</td>
-                <td className="num">{n1(p.production)}</td>
-                <td className="num">{n1(p.raw_score)}</td>
-                <td className="num">{p.sleeper_rank ? '#' + p.sleeper_rank : '—'}</td>
               </tr>
             ))}
           </tbody>

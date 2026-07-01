@@ -47,11 +47,8 @@ export default function App() {
         <div className="brand"><span className="logo-orb" />dynasty</div>
       </div>
 
-      {selected ? (
-        <PlayerView key={selected} id={selected} config={config} onBack={() => setSelected(null)} />
-      ) : (
-        <RankingTable players={players} config={config} onConfigChange={onConfigChange} onSelect={setSelected} />
-      )}
+      <RankingTable players={players} config={config} onConfigChange={onConfigChange} onSelect={setSelected} />
+      {selected && <PlayerView key={selected} id={selected} config={config} onBack={() => setSelected(null)} />}
     </div>
   )
 }

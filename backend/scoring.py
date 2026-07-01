@@ -150,12 +150,17 @@ def player_score(player: Dict[str, Any], seasons: List[Dict[str, Any]],
     proj = projection or {}
     proj_fpg = proj.get("proj_fpg")
     adp = proj.get("adp_dynasty")
+    latest = prod["latest_fpg"]
     if proj_fpg and float(proj_fpg) > 0:
-        production = float(proj_fpg)
-        source = "projection"
+        pf = float(proj_fpg)
+        # Use the BETTER of the 2026-27 projection and the most recent actual season,
+        # so a conservative projection never assumes a player in form will decline.
+        if latest and latest > pf:
+            production, source = latest, "recent"
+        else:
+            production, source = pf, "projection"
     else:
-        production = prod["bps"]
-        source = "history"
+        production, source = prod["bps"], "history"
 
     # Light availability (durability signal from recent games; rookies untouched).
     av_basis = prod["gp_rate"] if prod["n_seasons"] else 1.0
@@ -168,6 +173,10 @@ def player_score(player: Dict[str, Any], seasons: List[Dict[str, Any]],
         lift = max(0.0, min(1.0, (production - 30.0) / 20.0))
         age_mult = age_mult + (star_floor - age_mult) * lift
 
+    # Most-recent actual season (2025-26) — for DISPLAY only, not the value math.
+    recent_row = _recent(seasons, 1)
+    rs = recent_row[0] if recent_row else {}
+
     raw = production * av_mult * age_mult
     return {
         "id_player": player.get("id_player"), "name": player.get("name"),
@@ -178,6 +187,10 @@ def player_score(player: Dict[str, Any], seasons: List[Dict[str, Any]],
         "production_source": source, "from_projection": source == "projection",
         "proj_fpg": round(float(proj_fpg), 2) if proj_fpg else None,
         "proj_pts": proj.get("pts"), "proj_reb": proj.get("reb"), "proj_ast": proj.get("ast"),
+        "s_pts": rs.get("pts"), "s_reb": rs.get("reb"), "s_ast": rs.get("ast"),
+        "s_blk": rs.get("blk"), "s_stl": rs.get("stl"), "s_fg_pct": rs.get("fg_pct"),
+        "s_fg3_pct": rs.get("fg3_pct"), "s_ts": true_shooting(rs) if rs else None,
+        "s_fpg": rs.get("fpg"), "s_season": rs.get("season"),
         "sleeper_pos": proj.get("sleeper_pos"), "elig_pos": proj.get("elig_pos"), "adp_dynasty": adp,
         "av_mult": round(av_mult, 3), "age_mult": round(age_mult, 3),
         "raw_score": round(max(0.0, raw), 3),
