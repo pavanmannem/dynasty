@@ -48,9 +48,9 @@ DEFAULT_CONFIG = {
     # Recency weights for the historical fallback (used when no Sleeper projection).
     "recency_weights": [0.62, 0.28, 0.10],
     "lambda_av": 0.15,         # availability discount — light (projections already price health)
-    "theta": 0.90,             # youth tilt on top of projections (dynasty multi-year runway)
+    "theta": 1.10,             # youth tilt on top of projections (dynasty multi-year runway)
     "star_floor": 0.80,        # elite producers resist age decline (min age mult for high BPS)
-    "convexity": 2.30,         # $ curve steepness — fit to veteran auction prices
+    "convexity": 2.55,         # $ curve steepness — fit to veteran auction prices
 
     "scoring_weights": SCORING_WEIGHTS,
 }
