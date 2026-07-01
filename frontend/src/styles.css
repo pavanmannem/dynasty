@@ -240,6 +240,53 @@ thead th, tbody td { padding-left: 9px; padding-right: 9px; }
 .tip-body::after { content: ''; position: absolute; top: 100%; left: 12px; border: 6px solid transparent; border-top-color: #1b1d23; }
 .tip:hover .tip-body { opacity: 1; visibility: visible; transform: none; }
 
+/* ---- responsive ---- */
+/* The 125% base zoom overflows narrow screens — turn it off there. */
+@media (max-width: 900px) { body { zoom: 1; } }
+
+@media (max-width: 640px) {
+  .app { padding: 16px 12px 56px; }
+  .topbar { margin-bottom: 20px; }
+  .brand { font-size: 30px; gap: 11px; }
+  .logo-orb { width: 26px; height: 26px; }
+
+  .toolbar { gap: 8px; }
+  .search { flex-basis: 100%; min-width: 0; }
+  select.filter { flex: 1 1 42%; min-width: 0; }
+  .toolbar .btn.sm { flex: 1 1 42%; text-align: center; }
+
+  /* table: drop the secondary stat columns, declutter the player cell */
+  .hide-sm { display: none; }
+  thead th, tbody td { padding: 9px 7px; }
+  .art { width: 30px; height: 30px; }
+  .pteam-inline, .tierpill { display: none; }
+  .value { font-size: 20px; }
+  .footer-hint { font-size: 11px; }
+
+  /* config panel */
+  .config-grid { grid-template-columns: 1fr; gap: 16px; }
+
+  /* player overlay */
+  .modal-backdrop { padding: 16px 10px 48px; }
+  .modal-close { top: 12px; left: 12px; padding: 7px 12px; }
+  .pv-hero { min-height: 0; }
+  .pv-hero-inner { flex-direction: column; align-items: flex-start; gap: 14px; padding: 20px 18px; }
+  .pv-photo { width: 72px; height: 72px; }
+  .pv-id h1 { font-size: 30px; }
+  .pv-valuebox { text-align: left; }
+  .pv-valuebox .v { font-size: 42px; }
+  .pv-valuebox .r { text-align: left; }
+
+  .metrics { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .metric { padding: 12px 13px; }
+  .metric .v { font-size: 22px; }
+  .card { padding: 16px 15px; }
+  .bio-grid { grid-template-columns: repeat(2, 1fr); }
+  .bd-row { grid-template-columns: 68px 1fr 40px; gap: 8px; }
+  .bd-label { font-size: 11px; }
+  .tip-body { max-width: 78vw; }
+}
+
 /* motion */
 @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

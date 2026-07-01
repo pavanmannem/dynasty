@@ -5,14 +5,14 @@ const COLS = [
   { key: 'name', label: 'Player', align: 'left' },
   { key: 'pos', label: 'POS', align: 'left' },
   { key: 'age', label: 'Age' },
-  { key: 's_pts', label: 'PTS' },
-  { key: 's_reb', label: 'REB' },
-  { key: 's_ast', label: 'AST' },
-  { key: 's_blk', label: 'BLK' },
-  { key: 's_stl', label: 'STL' },
-  { key: 's_fg_pct', label: 'FG%' },
-  { key: 's_fg3_pct', label: '3P%' },
-  { key: 's_ts', label: 'TS%' },
+  { key: 's_pts', label: 'PTS', hide: true },
+  { key: 's_reb', label: 'REB', hide: true },
+  { key: 's_ast', label: 'AST', hide: true },
+  { key: 's_blk', label: 'BLK', hide: true },
+  { key: 's_stl', label: 'STL', hide: true },
+  { key: 's_fg_pct', label: 'FG%', hide: true },
+  { key: 's_fg3_pct', label: '3P%', hide: true },
+  { key: 's_ts', label: 'TS%', hide: true },
   { key: 's_fpg', label: 'FP/G' },
   { key: 'value', label: 'Value' },
 ]
@@ -98,7 +98,7 @@ export default function RankingTable({ players, config, onConfigChange, onSelect
         <table>
           <thead><tr>
             {COLS.map((c) => (
-              <th key={c.key} className={c.align === 'left' ? 'left' : ''} style={c.w ? { width: c.w } : null} onClick={() => clickSort(c.key)}>
+              <th key={c.key} className={(c.align === 'left' ? 'left ' : '') + (c.hide ? 'hide-sm' : '')} style={c.w ? { width: c.w } : null} onClick={() => clickSort(c.key)}>
                 {c.label}{sortKey === c.key && <span className="arrow"> {sortDir === 'asc' ? '↑' : '↓'}</span>}
               </th>
             ))}
@@ -120,14 +120,14 @@ export default function RankingTable({ players, config, onConfigChange, onSelect
                 </td>
                 <td className="left pos-pill">{posDisplay(p)}</td>
                 <td className="num">{p.age != null ? Math.round(p.age) : '—'}</td>
-                <td className="num">{n1(p.s_pts)}</td>
-                <td className="num">{n1(p.s_reb)}</td>
-                <td className="num">{n1(p.s_ast)}</td>
-                <td className="num">{n1(p.s_blk)}</td>
-                <td className="num">{n1(p.s_stl)}</td>
-                <td className="num">{pctd(p.s_fg_pct)}</td>
-                <td className="num">{pctd(p.s_fg3_pct)}</td>
-                <td className="num">{pctd(p.s_ts)}</td>
+                <td className="num hide-sm">{n1(p.s_pts)}</td>
+                <td className="num hide-sm">{n1(p.s_reb)}</td>
+                <td className="num hide-sm">{n1(p.s_ast)}</td>
+                <td className="num hide-sm">{n1(p.s_blk)}</td>
+                <td className="num hide-sm">{n1(p.s_stl)}</td>
+                <td className="num hide-sm">{pctd(p.s_fg_pct)}</td>
+                <td className="num hide-sm">{pctd(p.s_fg3_pct)}</td>
+                <td className="num hide-sm">{pctd(p.s_ts)}</td>
                 <td className="num">{n1(p.s_fpg)}</td>
                 <td><span className="value"><span className="dollar">$</span>{Math.round(p.value)}</span></td>
               </tr>
