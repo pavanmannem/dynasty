@@ -2,18 +2,26 @@ import React, { useEffect, useState } from 'react'
 import { getPlayer } from '../api.js'
 import { playerGradient } from '../gradient.js'
 
-function Sparkline({ seasons }) {
-  const pts = [...seasons].reverse().map((s) => s.fpg || 0)
+function CareerBars({ seasons }) {
+  const pts = [...seasons].reverse().map((s) => ({ label: s.season, fpg: s.fpg || 0 }))
   if (pts.length < 2) return null
-  const w = 260, h = 40, pad = 4
-  const max = Math.max(...pts), min = Math.min(...pts), span = max - min || 1
-  const x = (i) => pad + (i * (w - 2 * pad)) / (pts.length - 1)
-  const y = (v) => h - pad - ((v - min) / span) * (h - 2 * pad)
-  const d = pts.map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ')
+  // viewBox + preserveAspectRatio="none" makes the drawing stretch to fill
+  // whatever width/height CSS gives the <svg>, regardless of point count.
+  const VW = 600, VH = 90, pad = 3, gap = 6
+  const max = Math.max(...pts.map((p) => p.fpg), 1)
+  const bw = (VW - pad * 2) / pts.length
   return (
-    <svg className="spark" width={w} height={h}>
-      <path d={d} fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinejoin="round" />
-      {pts.map((v, i) => <circle key={i} cx={x(i)} cy={y(v)} r="2.2" fill="var(--accent)" />)}
+    <svg className="spark" viewBox={`0 0 ${VW} ${VH}`} preserveAspectRatio="none">
+      {pts.map((p, i) => {
+        const h = Math.max(2, (p.fpg / max) * (VH - pad * 2))
+        const x = pad + i * bw + gap / 2
+        const w = Math.max(1, bw - gap)
+        const isLatest = i === pts.length - 1
+        return (
+          <rect key={p.label} x={x} y={VH - pad - h} width={w} height={h} rx="2"
+            fill={isLatest ? 'var(--gold)' : 'var(--accent)'} opacity={isLatest ? 1 : 0.85} />
+        )
+      })}
     </svg>
   )
 }
@@ -122,7 +130,7 @@ export default function PlayerView({ id, config, onBack }) {
 
           <div className="glass card">
             <h3>Season history · FP/G trend</h3>
-            <Sparkline seasons={seasons} />
+            <CareerBars seasons={seasons} />
             <div className="scroll-x">
               <table className="stat-table">
                 <thead><tr>
