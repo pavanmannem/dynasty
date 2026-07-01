@@ -130,13 +130,28 @@ def main() -> None:
     espn_idx = {sleeper.norm_name(r["name"]): r["id_player"]
                 for r in conn.execute("SELECT id_player, name FROM players").fetchall()}
     matched = 0
+    added = 0
     for key, proj in projs.items():
         pid = espn_idx.get(key)
-        if pid:
-            db.upsert_projection(conn, pid, proj)
-            matched += 1
+        if not pid:
+            # Incoming rookies aren't on an ESPN roster yet, so they never enter
+            # the ESPN-built universe above. Add them as synthetic players (keyed
+            # by Sleeper id) so they get ranked from their projection — exactly the
+            # production basis the model already uses for rookies — instead of
+            # being silently dropped here. Scoped to rookies (years_exp == 0) so a
+            # veteran who merely fails name-matching isn't duplicated.
+            if (proj.get("years_exp") or 0) == 0 and proj.get("sleeper_pid"):
+                pid = "sleeper_{}".format(proj["sleeper_pid"])
+                db.upsert_player(conn, {"id_player": pid, "name": proj.get("name"),
+                                        "position": proj.get("position"), "experience": 0})
+                added += 1
+            else:
+                continue
+        db.upsert_projection(conn, pid, proj)
+        matched += 1
     conn.commit()
-    print("  matched {}/{} projections to rostered players".format(matched, len(projs)))
+    print("  matched {}/{} projections ({} rookies added to the universe)".format(
+        matched, len(projs), added))
 
     np = conn.execute("SELECT COUNT(*) FROM players").fetchone()[0]
     ws = conn.execute("SELECT COUNT(DISTINCT id_player) FROM player_seasons").fetchone()[0]
