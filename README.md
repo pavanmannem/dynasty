@@ -90,6 +90,13 @@ vercel.json    requirements.txt
 Values recompute on every request from the bundled stats + the config the browser passes —
 tweak a slider and the whole board updates.
 
+## Live draft feed
+The board is wired to the league's **Sleeper auction draft** (`config.DRAFT_ID`, public — no
+auth). The backend polls it server-side, so as picks happen players are marked **drafted $X**
+with the owner, the $ curve re-calibrates on real prices, and the most recent pick shows top-right
+(click it to open that player). The frontend re-polls every 15s. Point it at another league by
+setting the `SLEEPER_DRAFT_ID` env var.
+
 ## Deploy to Vercel
 The backend is stateless: SQLite ships read-only and all tunable config lives in the browser
 (localStorage), passed per request — so it runs as a Vercel Python Function with no database.

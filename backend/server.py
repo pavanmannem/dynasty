@@ -22,6 +22,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 import json as _json
 import config as _config
+import sleeper_draft
 
 
 def _cfg_from_request(config_param: Optional[str], conn) -> Dict[str, Any]:
@@ -44,9 +45,18 @@ def _load_all(conn, cfg: Dict[str, Any]) -> Dict[str, Any]:
         seasons.setdefault(r["id_player"], []).append(dict(r))
     overrides = db.all_overrides(conn)
     projections = db.all_projections(conn)
+    # Live Sleeper draft is the source of truth for who's drafted (and for how much);
+    # it also re-calibrates the $ curve as real prices come in. Falls back to the
+    # bundled seed if the feed is unavailable.
+    live = sleeper_draft.drafted_map(_config.DRAFT_ID)
     scores = []
     for pid, p in players.items():
-        ov = overrides.get(pid) or db.get_override(conn, pid)
+        ov = dict(overrides.get(pid) or db.get_override(conn, pid))
+        if live:
+            pick = live.get(sleeper_draft.norm_name(p.get("name") or ""))
+            ov["drafted"] = 1 if pick else 0
+            ov["draft_price"] = pick["amount"] if pick else None
+            ov["draft_owner"] = pick["owner"] if pick else None
         scores.append(scoring.player_score(p, seasons.get(pid, []), ov, projections.get(pid), cfg))
     ranked = scoring.assign_values(scores, cfg)
     # Attach the Sleeper dynasty-ADP consensus rank for divergence comparison.
@@ -91,6 +101,26 @@ def meta() -> Dict[str, Any]:
         seasons = [r[0] for r in conn.execute(
             "SELECT DISTINCT season FROM player_seasons ORDER BY season DESC").fetchall()]
         return {"config": cfg, "counts": counts, "seasons": seasons}
+    finally:
+        conn.close()
+
+
+@app.get("/api/draft")
+def draft() -> Dict[str, Any]:
+    """Live draft state from Sleeper + the most recent pick (with our player id)."""
+    conn = db.connect()
+    try:
+        d = sleeper_draft.fetch_draft(_config.DRAFT_ID)
+        picks = d["picks"]
+        latest = max(picks, key=lambda p: (p["pick_no"] or 0)) if picks else None
+        latest_out = None
+        if latest:
+            idx = {sleeper_draft.norm_name(r["name"]): r["id_player"]
+                   for r in conn.execute("SELECT id_player, name FROM players").fetchall()}
+            latest_out = {"name": latest["name"], "amount": latest["amount"],
+                          "owner": latest["owner"], "pick_no": latest["pick_no"],
+                          "id_player": idx.get(latest["key"])}
+        return {"status": d["status"], "type": d["type"], "count": len(picks), "latest": latest_out}
     finally:
         conn.close()
 

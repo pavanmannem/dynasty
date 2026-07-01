@@ -10,3 +10,4 @@ const q = (config) => (config ? '?config=' + encodeURIComponent(JSON.stringify(c
 export const getMeta = () => fetch('/api/meta').then(json)
 export const getPlayers = (config) => fetch('/api/players' + q(config)).then(json)
 export const getPlayer = (id, config) => fetch('/api/players/' + id + q(config)).then(json)
+export const getDraft = () => fetch('/api/draft').then(json)

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { getMeta, getPlayers } from './api.js'
+import { getMeta, getPlayers, getDraft } from './api.js'
 import RankingTable from './components/RankingTable.jsx'
 import PlayerView from './components/PlayerView.jsx'
 
@@ -11,6 +11,7 @@ export default function App() {
   const [config, setConfig] = useState(null)
   const [selected, setSelected] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [draft, setDraft] = useState(null)
 
   // Initialise: pull meta, seed config from localStorage or the bundled defaults.
   useEffect(() => {
@@ -22,14 +23,24 @@ export default function App() {
     })
   }, [])
 
-  // Refetch players whenever config changes (debounced for slider drags).
+  // Poll the live Sleeper draft every 15s.
+  useEffect(() => {
+    let stop = false
+    const poll = () => getDraft().then((d) => { if (!stop) setDraft(d) }).catch(() => {})
+    poll()
+    const iv = setInterval(poll, 15000)
+    return () => { stop = true; clearInterval(iv) }
+  }, [])
+
+  // Refetch the board on config change (debounced) OR when a new pick lands.
+  const lastPickNo = draft?.latest?.pick_no ?? null
   useEffect(() => {
     if (!config) return
     const t = setTimeout(() => {
       getPlayers(config).then((p) => { setPlayers(p); setLoading(false) })
     }, 220)
     return () => clearTimeout(t)
-  }, [config])
+  }, [config, lastPickNo])
 
   const onConfigChange = useCallback((patch) => {
     setConfig((c) => {
@@ -41,10 +52,24 @@ export default function App() {
 
   if (loading || !config) return <div className="app"><div className="loading">Loading…</div></div>
 
+  const lp = draft && draft.latest
   return (
     <div className="app">
       <div className="topbar">
         <div className="brand"><span className="logo-orb" />dynasty</div>
+        {lp && (
+          <button
+            className={'last-pick' + (lp.id_player ? ' clickable' : '')}
+            onClick={() => lp.id_player && setSelected(lp.id_player)}
+            title={lp.id_player ? 'Open player' : ''}
+          >
+            <span className="lp-tag">● {draft.status === 'complete' ? 'Last pick' : 'On the board'}</span>
+            <span className="lp-body">
+              <span className="lp-name">{lp.name}</span>
+              <span className="lp-meta">{lp.amount != null ? '$' + lp.amount : ''}{lp.owner ? ' · ' + lp.owner : ''} · pick {lp.pick_no}</span>
+            </span>
+          </button>
+        )}
       </div>
 
       <RankingTable players={players} config={config} onConfigChange={onConfigChange} onSelect={setSelected} />

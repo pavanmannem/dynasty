@@ -20,6 +20,8 @@ READONLY = bool(os.environ.get("DYNASTY_READONLY") or os.environ.get("VERCEL"))
 SEASON_YEARS = list(range(2026, 2016, -1))  # 10 seasons: 2025-26 back to 2016-17
 MIN_REQUEST_INTERVAL = 0.12                 # polite spacing between ESPN calls
 SLEEPER_YEAR = 2026                         # 2026-27 projections
+# Live Sleeper auction draft (public, no auth). Overridable via env for other leagues.
+DRAFT_ID = os.environ.get("SLEEPER_DRAFT_ID", "1375883645973176320")
 
 # --- League scoring (Westlake 512 — exact points settings) -----------------
 # Applied to per-game averages. Missed FG/FT are derived (attempts - makes).
