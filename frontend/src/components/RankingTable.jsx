@@ -24,14 +24,13 @@ const COLS = [
 const TIER_ORDER = { elite: 1, star: 2, starter: 3, rotation: 4, flyer: 5 }
 const PRICE_BANDS = [
   { id: 'lt10', label: 'Under $10', min: 0, max: 10 },
-  { id: '10-50', label: '$10–50', min: 10, max: 50 },
-  { id: '50-150', label: '$50–150', min: 50, max: 150 },
-  { id: '150+', label: '$150+', min: 150, max: Infinity },
+  { id: '10-30', label: '$10–30', min: 10, max: 30 },
+  { id: '30-50', label: '$30–50', min: 30, max: 50 },
 ]
 const ROI_BANDS = [
+  { id: '0.5', label: '0.5+', min: 0.5 },
   { id: '1', label: '1+', min: 1 },
-  { id: '3', label: '3+', min: 3 },
-  { id: '10', label: '10+', min: 10 },
+  { id: '2', label: '2+', min: 2 },
 ]
 
 const eligOf = (p) => (p.elig_pos || p.sleeper_pos || '').split(',').map((x) => x.trim()).filter(Boolean)
@@ -51,7 +50,10 @@ export default function RankingTable({ players, onSelect }) {
   const [rookiesOnly, setRookiesOnly] = useState(false)
   const [faOnly, setFaOnly] = useState(false)
   const [priceBand, setPriceBand] = useState('')
+  const [priceMin, setPriceMin] = useState('')
+  const [priceMax, setPriceMax] = useState('')
   const [roiBand, setRoiBand] = useState('')
+  const [roiMin, setRoiMin] = useState('')
 
   const positions = ['PG', 'SG', 'SF', 'PF', 'C']
   const teams = useMemo(() => Array.from(new Set(players.map((p) => p.team).filter((t) => t && t !== 'FA'))).sort(), [players])
@@ -75,12 +77,19 @@ export default function RankingTable({ players, onSelect }) {
     if (rookiesOnly) r = r.filter((p) => p.experience === 0)
     if (faOnly) r = r.filter((p) => p.team === 'FA')
     if (priceBand) {
-      const b = PRICE_BANDS.find((x) => x.id === priceBand)
-      r = r.filter((p) => { const c = p.drafted ? p.draft_price : p.value; return c >= b.min && c < b.max })
+      let lo = 0, hi = Infinity
+      if (priceBand === 'custom') {
+        lo = priceMin === '' ? 0 : +priceMin
+        hi = priceMax === '' ? Infinity : +priceMax
+      } else {
+        const b = PRICE_BANDS.find((x) => x.id === priceBand)
+        lo = b.min; hi = b.max
+      }
+      r = r.filter((p) => { const c = p.drafted ? p.draft_price : p.value; return c >= lo && c < hi })
     }
     if (roiBand) {
-      const b = ROI_BANDS.find((x) => x.id === roiBand)
-      r = r.filter((p) => (p.roi ?? -1) >= b.min)
+      const min = roiBand === 'custom' ? (roiMin === '' ? 0 : +roiMin) : ROI_BANDS.find((x) => x.id === roiBand).min
+      r = r.filter((p) => (p.roi ?? -1) >= min)
     }
     const dir = sortDir === 'asc' ? 1 : -1
     return [...r].sort((a, b) => {
@@ -88,7 +97,7 @@ export default function RankingTable({ players, onSelect }) {
       if (typeof av === 'string') return dir * (av || '').localeCompare(bv || '')
       return dir * ((av ?? -1) - (bv ?? -1))
     })
-  }, [players, search, pos, team, statusF, watchedOnly, rookiesOnly, faOnly, priceBand, roiBand, sortKey, sortDir])
+  }, [players, search, pos, team, statusF, watchedOnly, rookiesOnly, faOnly, priceBand, priceMin, priceMax, roiBand, roiMin, sortKey, sortDir])
 
   const clickSort = (k) => {
     if (k === sortKey) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
@@ -127,16 +136,32 @@ export default function RankingTable({ players, onSelect }) {
           <button key={b.id} className={'btn sm toggle-btn' + (priceBand === b.id ? ' active' : '')}
             onClick={() => setPriceBand((v) => (v === b.id ? '' : b.id))}>{b.label}</button>
         ))}
+        <button className={'btn sm toggle-btn' + (priceBand === 'custom' ? ' active' : '')}
+          onClick={() => setPriceBand((v) => (v === 'custom' ? '' : 'custom'))}>Custom ▾</button>
+        {priceBand === 'custom' && (
+          <span className="mini-filter">$
+            <input type="number" className="mini-input" placeholder="from" value={priceMin} onChange={(e) => setPriceMin(e.target.value)} />
+            –
+            <input type="number" className="mini-input" placeholder="to" value={priceMax} onChange={(e) => setPriceMax(e.target.value)} />
+          </span>
+        )}
         <span className="fdivider" />
         <span className="fgroup">ROI</span>
         {ROI_BANDS.map((b) => (
           <button key={b.id} className={'btn sm toggle-btn' + (roiBand === b.id ? ' active' : '')}
             onClick={() => setRoiBand((v) => (v === b.id ? '' : b.id))}>{b.label}</button>
         ))}
+        <button className={'btn sm toggle-btn' + (roiBand === 'custom' ? ' active' : '')}
+          onClick={() => setRoiBand((v) => (v === 'custom' ? '' : 'custom'))}>Custom ▾</button>
+        {roiBand === 'custom' && (
+          <span className="mini-filter">≥
+            <input type="number" step="0.1" className="mini-input" placeholder="roi" value={roiMin} onChange={(e) => setRoiMin(e.target.value)} />
+          </span>
+        )}
         {anyFilter && (
           <button className="btn sm ghost" onClick={() => {
             setStatusF(''); setWatchedOnly(false); setRookiesOnly(false); setFaOnly(false)
-            setPriceBand(''); setRoiBand('')
+            setPriceBand(''); setPriceMin(''); setPriceMax(''); setRoiBand(''); setRoiMin('')
           }}>Clear</button>
         )}
       </div>
