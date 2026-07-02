@@ -25,7 +25,7 @@ const COLS = [
   { key: 'name', label: 'Player', align: 'left' },
   { key: 'tier', label: 'Tier', align: 'left', hide: true },
   { key: 'pos', label: 'POS', align: 'left' },
-  { key: 'age', label: 'Age' },
+  { key: 'age', label: 'Age', xs: true },
   { key: 's_pts', label: 'PTS', hide: true },
   { key: 's_reb', label: 'REB', hide: true },
   { key: 's_ast', label: 'AST', hide: true },
@@ -37,9 +37,9 @@ const COLS = [
   { key: 's_fg3_pct', label: '3P%', hide: true },
   { key: 's_ts', label: 'TS%', hide: true },
   { key: 's_fpg', label: 'FP/G' },
-  { key: 'roi', label: 'ROI' },
+  { key: 'roi', label: 'ROI', xs: true },
   { key: 'value', label: 'Value' },
-  { key: 'draft_price', label: 'Paid' },
+  { key: 'draft_price', label: 'Paid', xs: true },
 ]
 const TIER_ORDER = { elite: 1, star: 2, starter: 3, rotation: 4, flyer: 5 }
 const PRICE_BANDS = [
@@ -111,7 +111,9 @@ export default function RankingTable({ players, onSelect }) {
         : k === 'draft_price' ? (p.draft_price ?? -1)
           : p[k])
 
-  const anyFilter = statusF || watchedOnly || rookiesOnly || faOnly || priceBand || roiBand
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const nActive = [statusF, watchedOnly, rookiesOnly, faOnly, priceBand, roiBand].filter(Boolean).length
+  const anyFilter = nActive > 0
 
   const rows = useMemo(() => {
     let r = players
@@ -164,9 +166,13 @@ export default function RankingTable({ players, onSelect }) {
           <option value="FA">Free agents</option>
           {teams.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
+        <button className={'btn sm toggle-btn filters-toggle' + (filtersOpen || anyFilter ? ' active' : '')}
+          onClick={() => setFiltersOpen((o) => !o)}>
+          Filters{nActive ? ' · ' + nActive : ''}
+        </button>
       </div>
 
-      <div className="toolbar filters2">
+      <div className={'toolbar filters2' + (filtersOpen ? ' open' : '')}>
         <button className={'btn sm toggle-btn' + (statusF === 'available' ? ' active' : '')}
           onClick={() => setStatusF((s) => (s === 'available' ? '' : 'available'))}>Available</button>
         <button className={'btn sm toggle-btn' + (statusF === 'drafted' ? ' active' : '')}
@@ -234,7 +240,7 @@ export default function RankingTable({ players, onSelect }) {
         <table>
           <thead><tr>
             {COLS.map((c) => (
-              <th key={c.key} className={(c.align === 'left' ? 'left ' : '') + (c.hide ? 'hide-sm' : '')} style={c.w ? { width: c.w } : null} onClick={() => clickSort(c.key)}>
+              <th key={c.key} className={(c.align === 'left' ? 'left ' : '') + (c.hide ? 'hide-sm ' : '') + (c.xs ? 'hide-xs' : '')} style={c.w ? { width: c.w } : null} onClick={() => clickSort(c.key)}>
                 {c.label}{sortKey === c.key && <span className="arrow"> {sortDir === 'asc' ? '↑' : '↓'}</span>}
               </th>
             ))}
@@ -254,7 +260,7 @@ export default function RankingTable({ players, onSelect }) {
                 </td>
                 <td className="left hide-sm"><span className={'tierpill tier-' + p.tier}>{p.tier}</span></td>
                 <td className="left pos-pill">{posDisplay(p)}</td>
-                <td className="num">{p.age != null ? Math.round(p.age) : '—'}</td>
+                <td className="num hide-xs">{p.age != null ? Math.round(p.age) : '—'}</td>
                 <td className="num hide-sm">{n1(p.s_pts)}</td>
                 <td className="num hide-sm">{n1(p.s_reb)}</td>
                 <td className="num hide-sm">{n1(p.s_ast)}</td>
@@ -266,9 +272,9 @@ export default function RankingTable({ players, onSelect }) {
                 <td className="num hide-sm">{pctd(p.s_fg3_pct)}</td>
                 <td className="num hide-sm">{pctd(p.s_ts)}</td>
                 <td className="num">{n1(p.s_fpg)}</td>
-                <td className="num">{p.roi == null ? '—' : Number(p.roi).toFixed(2)}</td>
+                <td className="num hide-xs">{p.roi == null ? '—' : Number(p.roi).toFixed(2)}</td>
                 <td><span className="value"><span className="dollar">$</span>{Math.round(p.value)}</span></td>
-                <td className="num">{p.drafted && p.draft_price != null ? <span className="paid">${Math.round(p.draft_price)}</span> : '—'}</td>
+                <td className="num hide-xs">{p.drafted && p.draft_price != null ? <span className="paid">${Math.round(p.draft_price)}</span> : '—'}</td>
               </tr>
             ))}
           </tbody>

@@ -64,6 +64,7 @@ select.filter { flex: 1 1 160px; background: var(--glass-2); border: 1px solid v
 
 /* second filter row: status chips + price/ROI presets */
 .filters2 { margin-top: -6px; }
+.filters-toggle { display: none; }  /* mobile-only: collapses the filter row */
 .fdivider { width: 1px; height: 22px; background: var(--line-2); margin: 0 4px; }
 .fgroup { font-size: 11px; text-transform: uppercase; letter-spacing: .09em; font-weight: 700; color: var(--muted-2); margin: 0 2px 0 4px; }
 .filters2 .toggle-btn { border-radius: 20px; }
@@ -275,20 +276,26 @@ tbody tr:last-child td { border-bottom: none; }
 @media (max-width: 640px) {
   .app { padding: 16px 12px 56px; }
   .topbar { margin-bottom: 20px; }
-  .brand { font-size: 30px; gap: 11px; }
-  .logo-orb { width: 26px; height: 26px; }
+  .brand { font-size: 30px; }
 
   .toolbar { gap: 8px; }
-  .search { flex-basis: 100%; min-width: 0; }
-  select.filter { flex: 1 1 42%; min-width: 0; }
-  .toolbar .btn.sm { flex: 1 1 42%; text-align: center; }
+  .search { flex-basis: 100%; min-width: 0; padding: 10px 14px; font-size: 14px; }
+  select.filter { flex: 1 1 34%; min-width: 0; padding: 10px 10px; font-size: 13.5px; }
 
-  /* table: drop the secondary stat columns, declutter the player cell */
-  .hide-sm { display: none; }
+  /* filters collapse behind one button; chips keep natural width when open */
+  .filters-toggle { display: inline-flex; }
+  .toolbar.filters2 { display: none; }
+  .toolbar.filters2.open { display: flex; margin-top: 2px; }
+  .fdivider { display: none; }
+  .fgroup { flex-basis: 100%; margin: 6px 0 0; }
+
+  /* table: only the essentials — #, player, POS, FP/G, value */
+  .hide-sm, .hide-xs { display: none; }
   thead th, tbody td { padding: 9px 7px; }
   .art { width: 30px; height: 30px; }
   .pteam-inline, .tierpill { display: none; }
-  .value { font-size: 20px; }
+  .pname { font-size: 14px; white-space: normal; }
+  .value { font-size: 18px; }
   .footer-hint { font-size: 11px; }
 
   /* config panel */
