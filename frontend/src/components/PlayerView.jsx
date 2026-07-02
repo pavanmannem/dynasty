@@ -97,7 +97,6 @@ export default function PlayerView({ id, config, onBack, onOpen }) {
 
   const { player: p, score: sc, seasons, projection: proj, breakdown, basis_label, true_shooting: ts } = d
   const photo = p.headshot
-  const md = sc.market_delta
   const maxBd = Math.max(...breakdown.map((b) => Math.abs(b[1])), 1)
 
   const bio = [p.height, p.weight, p.college, p.jersey ? '#' + p.jersey : null,
@@ -190,14 +189,6 @@ export default function PlayerView({ id, config, onBack, onOpen }) {
             </span>
             <span className="val">${Math.round(sc.value)}</span>
           </div>
-          {sc.drafted ? (
-            <div className="market-line">
-              <span style={{ color: 'var(--muted)' }}>Paid <b style={{ color: 'var(--ink)' }}>${sc.draft_price}</b> · {sc.draft_owner}</span>
-              <span className={md > 8 ? 'up' : md < -8 ? 'down' : ''} style={{ fontWeight: 600 }}>
-                {md > 8 ? `bargain +$${Math.round(md)}` : md < -8 ? `reach −$${Math.abs(Math.round(md))}` : 'fair price'}
-              </span>
-            </div>
-          ) : null}
         </div>
       </div>
 

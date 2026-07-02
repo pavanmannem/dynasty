@@ -1,5 +1,5 @@
-// Generative abstract gradient art — a unique, deterministic "cover" per player,
-// echoing the album-art / moodboard aesthetic of the inspiration.
+// Generative gradient art per player — deterministic from the player id, but
+// constrained to the site palette so every card feels like the same family.
 
 function hash(str) {
   let h = 2166136261
@@ -11,24 +11,33 @@ function hash(str) {
   return h >>> 0
 }
 
+// Site palette: warm, muted, editorial — anchored on the brand orange.
+// Neighbors in this list are curated to blend well; each gradient uses a
+// palette color plus the one next to it.
+const PALETTE = [
+  { h: 24, s: 72, l: 46 },   // burnt orange (brand)
+  { h: 10, s: 58, l: 42 },   // terracotta
+  { h: 345, s: 42, l: 38 },  // plum
+  { h: 228, s: 38, l: 42 },  // slate blue
+  { h: 188, s: 46, l: 34 },  // deep teal
+  { h: 150, s: 32, l: 36 },  // moss
+]
+
+const hsl = (c, dl = 0, alpha = 1) =>
+  `hsl(${c.h} ${c.s}% ${Math.max(8, Math.min(88, c.l + dl))}% / ${alpha})`
+
 export function playerGradient(seed) {
   const h = hash(seed)
-  const hue = h % 360
-  const hue2 = (hue + 35 + ((h >> 3) % 70)) % 360
-  const hue3 = (hue + 165 + ((h >> 5) % 70)) % 360
+  const a = PALETTE[h % PALETTE.length]
+  const b = PALETTE[(h % PALETTE.length + 1) % PALETTE.length]
   const x1 = 12 + (h % 46)
   const y1 = 10 + ((h >> 4) % 40)
   const x2 = 55 + ((h >> 6) % 40)
   const y2 = 60 + ((h >> 8) % 35)
-  const ang = (h >> 2) % 360
+  const ang = 100 + ((h >> 2) % 140)
   return (
-    `radial-gradient(80% 80% at ${x1}% ${y1}%, hsl(${hue} 88% 64% / 0.95), transparent 62%),` +
-    `radial-gradient(75% 75% at ${x2}% ${y2}%, hsl(${hue3} 82% 56% / 0.9), transparent 58%),` +
-    `linear-gradient(${ang}deg, hsl(${hue2} 74% 46%), hsl(${hue} 68% 26%))`
+    `radial-gradient(80% 80% at ${x1}% ${y1}%, ${hsl(a, 14, 0.95)}, transparent 62%),` +
+    `radial-gradient(75% 75% at ${x2}% ${y2}%, ${hsl(b, 4, 0.9)}, transparent 58%),` +
+    `linear-gradient(${ang}deg, ${hsl(a, -6)}, ${hsl(b, -18)})`
   )
-}
-
-// A soft accent color derived from the same seed (for glows / rings).
-export function playerAccent(seed) {
-  return `hsl(${hash(seed) % 360} 85% 66%)`
 }

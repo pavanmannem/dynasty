@@ -3,6 +3,7 @@ import React, { useMemo, useState } from 'react'
 const COLS = [
   { key: 'rank', label: '#', w: '30px' },
   { key: 'name', label: 'Player', align: 'left' },
+  { key: 'tier', label: 'Tier', align: 'left', hide: true },
   { key: 'pos', label: 'POS', align: 'left' },
   { key: 'age', label: 'Age' },
   { key: 's_pts', label: 'PTS', hide: true },
@@ -16,7 +17,9 @@ const COLS = [
   { key: 's_fpg', label: 'FP/G' },
   { key: 'roi', label: 'ROI' },
   { key: 'value', label: 'Value' },
+  { key: 'draft_price', label: 'Paid' },
 ]
+const TIER_ORDER = { elite: 1, star: 2, starter: 3, rotation: 4, flyer: 5 }
 const eligOf = (p) => (p.elig_pos || p.sleeper_pos || '').split(',').map((x) => x.trim()).filter(Boolean)
 const posDisplay = (p) => eligOf(p).join('/') || (p.position || '—')
 const n1 = (x) => (x == null ? '—' : Number(x).toFixed(1))
@@ -40,7 +43,11 @@ export default function RankingTable({ players, config, onConfigChange, onSelect
   const positions = ['PG', 'SG', 'SF', 'PF', 'C']
   const teams = useMemo(() => Array.from(new Set(players.map((p) => p.team).filter(Boolean))).sort(), [players])
 
-  const cellVal = (p, k) => (k === 'pos' ? posSort(eligOf(p)[0]) : p[k])
+  const cellVal = (p, k) => (
+    k === 'pos' ? posSort(eligOf(p)[0])
+      : k === 'tier' ? (TIER_ORDER[p.tier] || 9)
+        : k === 'draft_price' ? (p.draft_price ?? -1)
+          : p[k])
 
   const rows = useMemo(() => {
     let r = players
@@ -63,7 +70,7 @@ export default function RankingTable({ players, config, onConfigChange, onSelect
 
   const clickSort = (k) => {
     if (k === sortKey) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
-    else { setSortKey(k); setSortDir(k === 'name' || k === 'pos' || k === 'sleeper_rank' ? 'asc' : 'desc') }
+    else { setSortKey(k); setSortDir(k === 'name' || k === 'pos' || k === 'tier' || k === 'sleeper_rank' ? 'asc' : 'desc') }
   }
   const applyConfig = (patch) => {
     const [k, v] = Object.entries(patch)[0]
@@ -135,20 +142,19 @@ export default function RankingTable({ players, config, onConfigChange, onSelect
             ))}
           </tr></thead>
           <tbody>
-            {rows.map((p) => (
+            {rows.map((p, i) => (
               <tr key={p.id_player} onClick={() => onSelect(p.id_player)}>
-                <td className="rank">{p.rank}</td>
+                <td className="rank">{i + 1}</td>
                 <td className="left">
                   <div className="pcell">
                     <div className="art">{p.headshot && <img src={p.headshot} alt="" loading="lazy" />}</div>
                     <div className="pmeta">
                       <span className="pname">{p.name}</span>
                       <span className="pteam-inline">{p.team}</span>
-                      <span className={'tierpill tier-' + p.tier}>{p.tier}</span>
-                      {p.drafted ? <span className="draftpill">drafted ${p.draft_price}</span> : null}
                     </div>
                   </div>
                 </td>
+                <td className="left hide-sm"><span className={'tierpill tier-' + p.tier}>{p.tier}</span></td>
                 <td className="left pos-pill">{posDisplay(p)}</td>
                 <td className="num">{p.age != null ? Math.round(p.age) : '—'}</td>
                 <td className="num hide-sm">{n1(p.s_pts)}</td>
@@ -162,6 +168,7 @@ export default function RankingTable({ players, config, onConfigChange, onSelect
                 <td className="num">{n1(p.s_fpg)}</td>
                 <td className="num">{p.roi == null ? '—' : Number(p.roi).toFixed(2)}</td>
                 <td><span className="value"><span className="dollar">$</span>{Math.round(p.value)}</span></td>
+                <td className="num">{p.drafted && p.draft_price != null ? <span className="paid">${Math.round(p.draft_price)}</span> : '—'}</td>
               </tr>
             ))}
           </tbody>
