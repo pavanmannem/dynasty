@@ -99,7 +99,7 @@ export default function PlayerView({ id, config, onBack, onOpen }) {
   )
   if (!d) return <div className="modal-backdrop" onClick={onBackdrop}>{closeBtn}<div className="loading">Loading…</div></div>
 
-  const { player: p, score: sc, seasons, projection: proj, breakdown, basis_label, true_shooting: ts } = d
+  const { player: p, score: sc, seasons, projection: proj, breakdown } = d
   const photo = p.headshot
   const maxBd = Math.max(...breakdown.map((b) => Math.abs(b[1])), 1)
 
@@ -140,11 +140,16 @@ export default function PlayerView({ id, config, onBack, onOpen }) {
       </div>
 
       <div className="metrics">
-        <div className="glass metric"><div className="k">Auction value</div><div className="v money">${Math.round(sc.value)}</div><div className="sub">of $4,800 pool</div></div>
+        <div className="glass metric"><div className="k">FP/G rank</div><div className="v">{sc.fp_rank ? '#' + sc.fp_rank : '—'}</div><div className="sub">by projected fantasy points</div></div>
         <div className="glass metric"><div className="k">Position rank</div><div className="v">{sc.pos_rank || '—'}</div><div className="sub">at his slot, by value</div></div>
         <div className="glass metric"><div className="k">ROI</div><div className="v">{sc.roi != null ? Number(sc.roi).toFixed(2) : '—'}</div><div className="sub">FP/G per $ {sc.drafted ? 'paid' : 'of value'}</div></div>
-        <div className="glass metric"><div className="k">Sleeper ADP</div><div className="v">{sc.sleeper_rank ? '#' + sc.sleeper_rank : '—'}</div><div className="sub">dynasty consensus</div></div>
-        <div className="glass metric"><div className="k">True shooting</div><div className="v">{ts ? (ts * 100).toFixed(1) + '%' : '—'}</div><div className="sub">efficiency</div></div>
+        <div className="glass metric"><div className="k">Drafted</div><div className="v">{sc.drafted && sc.draft_price != null ? '$' + Math.round(sc.draft_price) : '—'}</div><div className="sub">{sc.drafted ? 'by ' + (sc.draft_owner || '?') : 'still available'}</div></div>
+        <div className="glass metric"><div className="k">Δ to value</div>
+          <div className={'v ' + (sc.drafted && sc.market_delta != null ? (sc.market_delta > 0 ? 'up' : sc.market_delta < 0 ? 'down' : '') : '')}>
+            {sc.drafted && sc.market_delta != null ? (sc.market_delta > 0 ? '+$' + Math.round(sc.market_delta) : '−$' + Math.abs(Math.round(sc.market_delta))) : '—'}
+          </div>
+          <div className="sub">{sc.drafted ? 'our value minus price paid' : 'not drafted yet'}</div>
+        </div>
       </div>
 
       <div className="grid2 stretch">

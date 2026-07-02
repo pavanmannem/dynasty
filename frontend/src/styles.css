@@ -180,7 +180,7 @@ tbody tr:last-child td { border-bottom: none; }
 .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(116px, 1fr)); gap: 12px; margin-bottom: 18px; }
 .metric { padding: 14px 16px; }
 .metric .k { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted-2); }
-.metric .v { font-size: 21px; font-weight: 700; letter-spacing: -0.01em; margin-top: 5px; line-height: 1; }
+.metric .v { font-size: 21px; font-weight: 400; letter-spacing: -0.01em; margin-top: 5px; line-height: 1; }
 .metric .v.money { color: var(--gold); }
 
 /* value pipeline as a clean equation */

@@ -258,6 +258,9 @@ def assign_values(scores: List[Dict[str, Any]], cfg: Dict[str, Any]) -> List[Dic
         s["market_delta"] = round(s["value"] - float(s["draft_price"]), 1) if s.get("draft_price") else None
 
     ranked.sort(key=lambda s: s["value"], reverse=True)
+    # Rank by raw projected production (independent of price/age adjustments).
+    for i, s in enumerate(sorted(ranked, key=lambda s: -(s["production"] or 0)), start=1):
+        s["fp_rank"] = i
     pos_counts: Dict[str, int] = {}
     for rank, s in enumerate(ranked, start=1):
         s["rank"] = rank
