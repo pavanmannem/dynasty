@@ -1,14 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { getPlayer } from '../api.js'
 
-// Each player gets one of the ASCII-gradient backdrops, deterministically.
-const N_BACKDROPS = 4
-function backdropFor(seed) {
-  let h = 2166136261
-  const s = String(seed)
-  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) }
-  return `/backdrops/bd${((h >>> 0) % N_BACKDROPS) + 1}.jpg`
-}
+// One backdrop for everyone (bd1: the warm ASCII gradient).
+const backdropFor = () => '/backdrops/bd1.jpg'
 
 function CareerBars({ seasons }) {
   const pts = [...seasons].reverse().map((s) => ({ season: s.season, fpg: s.fpg || 0 }))
