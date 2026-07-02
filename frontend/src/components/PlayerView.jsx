@@ -122,7 +122,6 @@ export default function PlayerView({ id, config, onBack, onOpen }) {
       <div className="modal fade">
       <div className="pv-hero">
         <div className="pv-hero-art" style={{ backgroundImage: `url(${backdropFor(p.id_player)})` }} />
-        <div className="pv-hero-shade" />
         <div className="pv-hero-inner">
           {photo ? <img className="pv-photo" src={photo} alt="" /> : <div className="pv-photo" />}
           <div className="pv-id">
