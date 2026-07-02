@@ -68,9 +68,16 @@ select.filter { flex: 1 1 160px; background: var(--glass-2); border: 1px solid v
 .fgroup { font-size: 11px; text-transform: uppercase; letter-spacing: .09em; font-weight: 700; color: var(--muted-2); margin: 0 2px 0 4px; }
 .filters2 .toggle-btn { border-radius: 20px; }
 .filters2 .toggle-btn.active { background: var(--accent); color: #fff; border-color: transparent; box-shadow: 0 2px 8px rgba(224,120,44,0.35); }
-.mini-filter { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13.5px; }
-.mini-input { width: 72px; background: var(--glass-2); border: 1px solid var(--line); color: var(--ink); border-radius: 20px; padding: 6px 11px; font-size: 13px; }
+.mini-input { width: 88px; background: #fff; border: 1px solid var(--line-2); color: var(--ink); border-radius: 9px; padding: 8px 11px; font-size: 13.5px; }
 .mini-input:focus { outline: none; border-color: var(--accent); }
+
+/* custom-range dropdown (date-picker style) */
+.popwrap { position: relative; display: inline-flex; }
+.popover { position: absolute; top: calc(100% + 8px); left: 0; z-index: 60; background: #fff; border: 1px solid var(--line-2); border-radius: 14px; padding: 14px 15px; box-shadow: 0 14px 40px rgba(0, 0, 0, 0.16); min-width: 240px; animation: fadeUp .15s ease both; }
+.pop-title { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; color: var(--muted-2); margin-bottom: 11px; }
+.pop-row { display: flex; align-items: center; gap: 8px; margin-bottom: 13px; }
+.pop-dash { color: var(--muted-2); }
+.pop-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
 /* ---- config panel ---- */
 .config-panel { padding: 20px 22px; margin-bottom: 18px; }

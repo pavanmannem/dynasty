@@ -1,4 +1,24 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useRef, useEffect } from 'react'
+
+// Anchored dropdown panel (date-picker style): opens under its chip, closes on
+// outside click or Escape, commits only on submit.
+function Popover({ chipLabel, active, open, setOpen, children }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey) }
+  }, [open, setOpen])
+  return (
+    <span className="popwrap" ref={ref}>
+      <button className={'btn sm toggle-btn' + (active ? ' active' : '')} onClick={() => setOpen((o) => !o)}>{chipLabel} ▾</button>
+      {open && <div className="popover">{children}</div>}
+    </span>
+  )
+}
 
 const COLS = [
   { key: 'rank', label: '#', w: '30px' },
@@ -54,6 +74,33 @@ export default function RankingTable({ players, onSelect }) {
   const [priceMax, setPriceMax] = useState('')
   const [roiBand, setRoiBand] = useState('')
   const [roiMin, setRoiMin] = useState('')
+  // popover open state + draft values (committed on Apply)
+  const [pricePop, setPricePop] = useState(false)
+  const [roiPop, setRoiPop] = useState(false)
+  const [tmpPriceMin, setTmpPriceMin] = useState('')
+  const [tmpPriceMax, setTmpPriceMax] = useState('')
+  const [tmpRoiMin, setTmpRoiMin] = useState('')
+
+  const openPricePop = (o) => {
+    if (typeof o === 'function' ? o(pricePop) : o) { setTmpPriceMin(priceMin); setTmpPriceMax(priceMax) }
+    setPricePop(o)
+  }
+  const openRoiPop = (o) => {
+    if (typeof o === 'function' ? o(roiPop) : o) { setTmpRoiMin(roiMin) }
+    setRoiPop(o)
+  }
+  const applyPrice = (e) => {
+    e.preventDefault()
+    setPriceMin(tmpPriceMin); setPriceMax(tmpPriceMax)
+    setPriceBand(tmpPriceMin === '' && tmpPriceMax === '' ? '' : 'custom')
+    setPricePop(false)
+  }
+  const applyRoi = (e) => {
+    e.preventDefault()
+    setRoiMin(tmpRoiMin)
+    setRoiBand(tmpRoiMin === '' ? '' : 'custom')
+    setRoiPop(false)
+  }
 
   const positions = ['PG', 'SG', 'SF', 'PF', 'C']
   const teams = useMemo(() => Array.from(new Set(players.map((p) => p.team).filter((t) => t && t !== 'FA'))).sort(), [players])
@@ -136,28 +183,45 @@ export default function RankingTable({ players, onSelect }) {
           <button key={b.id} className={'btn sm toggle-btn' + (priceBand === b.id ? ' active' : '')}
             onClick={() => setPriceBand((v) => (v === b.id ? '' : b.id))}>{b.label}</button>
         ))}
-        <button className={'btn sm toggle-btn' + (priceBand === 'custom' ? ' active' : '')}
-          onClick={() => setPriceBand((v) => (v === 'custom' ? '' : 'custom'))}>Custom ▾</button>
-        {priceBand === 'custom' && (
-          <span className="mini-filter">$
-            <input type="number" className="mini-input" placeholder="from" value={priceMin} onChange={(e) => setPriceMin(e.target.value)} />
-            –
-            <input type="number" className="mini-input" placeholder="to" value={priceMax} onChange={(e) => setPriceMax(e.target.value)} />
-          </span>
-        )}
+        <Popover
+          chipLabel={priceBand === 'custom' ? `$${priceMin || '0'}–${priceMax || '∞'}` : 'Custom'}
+          active={priceBand === 'custom'} open={pricePop} setOpen={openPricePop}>
+          <form onSubmit={applyPrice}>
+            <div className="pop-title">Price range</div>
+            <div className="pop-row">
+              <input type="number" className="mini-input" placeholder="from $" autoFocus
+                value={tmpPriceMin} onChange={(e) => setTmpPriceMin(e.target.value)} />
+              <span className="pop-dash">–</span>
+              <input type="number" className="mini-input" placeholder="to $"
+                value={tmpPriceMax} onChange={(e) => setTmpPriceMax(e.target.value)} />
+            </div>
+            <div className="pop-actions">
+              <button type="button" className="btn sm ghost" onClick={() => { setTmpPriceMin(''); setTmpPriceMax('') }}>Reset</button>
+              <button type="submit" className="btn sm primary">Apply</button>
+            </div>
+          </form>
+        </Popover>
         <span className="fdivider" />
         <span className="fgroup">ROI</span>
         {ROI_BANDS.map((b) => (
           <button key={b.id} className={'btn sm toggle-btn' + (roiBand === b.id ? ' active' : '')}
             onClick={() => setRoiBand((v) => (v === b.id ? '' : b.id))}>{b.label}</button>
         ))}
-        <button className={'btn sm toggle-btn' + (roiBand === 'custom' ? ' active' : '')}
-          onClick={() => setRoiBand((v) => (v === 'custom' ? '' : 'custom'))}>Custom ▾</button>
-        {roiBand === 'custom' && (
-          <span className="mini-filter">≥
-            <input type="number" step="0.1" className="mini-input" placeholder="roi" value={roiMin} onChange={(e) => setRoiMin(e.target.value)} />
-          </span>
-        )}
+        <Popover
+          chipLabel={roiBand === 'custom' ? `≥ ${roiMin}` : 'Custom'}
+          active={roiBand === 'custom'} open={roiPop} setOpen={openRoiPop}>
+          <form onSubmit={applyRoi}>
+            <div className="pop-title">Minimum ROI</div>
+            <div className="pop-row">
+              <input type="number" step="0.1" className="mini-input" placeholder="e.g. 1.5" autoFocus
+                value={tmpRoiMin} onChange={(e) => setTmpRoiMin(e.target.value)} />
+            </div>
+            <div className="pop-actions">
+              <button type="button" className="btn sm ghost" onClick={() => setTmpRoiMin('')}>Reset</button>
+              <button type="submit" className="btn sm primary">Apply</button>
+            </div>
+          </form>
+        </Popover>
         {anyFilter && (
           <button className="btn sm ghost" onClick={() => {
             setStatusF(''); setWatchedOnly(false); setRookiesOnly(false); setFaOnly(false)
