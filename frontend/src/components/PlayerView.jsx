@@ -175,6 +175,12 @@ export default function PlayerView({ id, config, onBack, onOpen }) {
             <span className="lbl">Composite score</span>
             <span className="val">{sc.raw_score.toFixed(1)}</span>
           </div>
+          {(sc.name_premium || 0) >= 1 && (
+            <div className="pipe-row">
+              <span className="lbl"><span className="op">+</span>Name premium<span className="sub">market drafts him #{sc.sleeper_rank} (${Math.round(sc.market_value)})</span></span>
+              <span className="val up">+${Math.round(sc.name_premium)}</span>
+            </div>
+          )}
           <div className="pipe-row final">
             <span className="lbl">Auction value
               <span className="tip">

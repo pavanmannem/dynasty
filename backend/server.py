@@ -90,7 +90,7 @@ _LIST_FIELDS = ("rank", "id_player", "name", "team", "position", "age", "latest_
                 "raw_score", "value", "auto_value",
                 "var", "drafted", "draft_price", "draft_owner", "market_delta",
                 "n_seasons", "experience", "injury_status", "headshot", "sleeper_rank", "watched",
-                "roi", "cost", "pos_rank")
+                "roi", "cost", "pos_rank", "name_premium", "model_value", "market_value")
 
 
 @app.get("/api/meta")
@@ -168,7 +168,7 @@ def player_detail(id_player: str, config: Optional[str] = None) -> Dict[str, Any
                 me = s
                 score.update({k: s.get(k) for k in ("rank", "value", "auto_value", "var",
                                                     "market_delta", "sleeper_rank",
-                                                    "roi", "cost", "pos_rank")})
+                                                    "roi", "cost", "pos_rank", "name_premium", "model_value", "market_value")})
                 break
 
         # Comparables: players producing at a similar level, split by cost efficiency.
@@ -216,6 +216,7 @@ class ConfigPatch(BaseModel):
     theta: Optional[float] = None
     star_floor: Optional[float] = None
     convexity: Optional[float] = None
+    market_blend: Optional[float] = None
     recency_weights: Optional[List[float]] = None
 
 

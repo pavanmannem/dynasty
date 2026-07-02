@@ -120,6 +120,7 @@ export default function RankingTable({ players, config, onConfigChange, onSelect
             <Slider label="Youth tilt (θ)" val={cfg.theta} min={0} max={1.6} step={0.05} fmt={(v) => v.toFixed(2)} onCh={(v) => applyConfig({ theta: v })} hint="0 win-now · 1 balanced · 1.6 heavy youth" />
             <Slider label="Availability (λ)" val={cfg.lambda_av} min={0} max={0.7} step={0.05} fmt={(v) => v.toFixed(2)} onCh={(v) => applyConfig({ lambda_av: v })} hint="how hard missed games discount value" />
             <Slider label="Top-heaviness" val={cfg.convexity} min={1} max={3.2} step={0.05} fmt={(v) => v.toFixed(2)} onCh={(v) => applyConfig({ convexity: v })} hint="stars-and-scrubs vs flat" />
+            <Slider label="Name premium" val={cfg.market_blend ?? 0.5} min={0} max={1} step={0.05} fmt={(v) => v.toFixed(2)} onCh={(v) => applyConfig({ market_blend: v })} hint="big names get bid toward their market ADP price" />
           </div>
         </div>
       )}

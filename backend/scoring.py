@@ -233,8 +233,28 @@ def assign_values(scores: List[Dict[str, Any]], cfg: Dict[str, Any]) -> List[Dic
             auto = round(min_bid * (s["raw_score"] / replacement), 1) if replacement > 0 else 0.0
         s["auto_value"] = round(auto, 1)
         s["value"] = round(float(s["manual_value"]), 1) if s["manual_value"] is not None else s["auto_value"]
-        s["market_delta"] = round(s["value"] - float(s["draft_price"]), 1) if s.get("draft_price") else None
         s.pop("w", None)
+
+    # Name premium: big names get bid up regardless of what the production model
+    # says (KD, Steph, Harden...). The market's opinion — name value included —
+    # lives in Sleeper's dynasty ADP, so when the market ranks a player HIGHER
+    # than we do, pull his price toward what our own curve pays at that market
+    # rank. Uplift only: players the market undervalues keep our (higher) value,
+    # so bargains stay visible.
+    blend = float(cfg.get("market_blend", 0.5))
+    curve = sorted((s["value"] for s in ranked), reverse=True)
+    with_adp = sorted((s for s in ranked if s.get("adp_dynasty") is not None),
+                      key=lambda s: s["adp_dynasty"])
+    for mkt_rank, s in enumerate(with_adp, start=1):
+        s["market_value"] = round(curve[min(mkt_rank - 1, len(curve) - 1)], 1)
+    for s in ranked:
+        mv = s.get("market_value")
+        premium = blend * max(0.0, mv - s["value"]) if (mv and blend > 0) else 0.0
+        s["name_premium"] = round(premium, 1)
+        s["model_value"] = s["value"]
+        if premium > 0:
+            s["value"] = round(s["value"] + premium, 1)
+        s["market_delta"] = round(s["value"] - float(s["draft_price"]), 1) if s.get("draft_price") else None
 
     ranked.sort(key=lambda s: s["value"], reverse=True)
     pos_counts: Dict[str, int] = {}

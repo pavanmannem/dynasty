@@ -56,6 +56,7 @@ DEFAULT_CONFIG = {
     "theta": 1.10,             # youth tilt on top of projections (dynasty multi-year runway)
     "star_floor": 0.80,        # elite producers resist age decline (min age mult for high BPS)
     "convexity": 2.55,         # $ curve steepness — fit to veteran auction prices
+    "market_blend": 0.5,       # name premium: pull toward the price at a player's ADP rank (uplift only)
 
     "scoring_weights": SCORING_WEIGHTS,
 }
