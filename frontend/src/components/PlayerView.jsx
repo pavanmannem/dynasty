@@ -123,10 +123,6 @@ export default function PlayerView({ id, config, onBack, onOpen }) {
             <div className="pv-sub">
               {p.team_name} · {(sc.elig_pos || sc.sleeper_pos || p.position || '').split(',').join('/')} · Age {sc.age ?? '—'}
               {p.experience != null ? ` · ${p.experience === 0 ? 'Rookie' : p.experience + ' yr'}` : ''}
-              {sc.production_source === 'projection' ? <span className="chip-mini proj">2026-27 projection</span>
-                : sc.production_source === 'recent' ? <span className="chip-mini proj">2025-26 form</span>
-                  : <span className="chip-mini">career avg</span>}
-              {sc.drafted ? <span className="chip-mini gone">drafted ${sc.draft_price} · {sc.draft_owner}</span> : null}
               {p.injury_status && p.injury_status !== 'Active' ? <span className="chip-mini gone">{p.injury_status}</span> : null}
             </div>
             {bio && <div className="pv-sub2">{bio}</div>}
