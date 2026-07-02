@@ -34,12 +34,7 @@ body {
 
 /* ---- header ---- */
 .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px; gap: 20px; flex-wrap: wrap; }
-.brand { display: flex; align-items: center; gap: 13px; font-family: var(--sans); font-size: 27px; line-height: 1; letter-spacing: -0.02em; font-weight: 700; color: var(--accent); }
-.logo-orb {
-  width: 33px; height: 33px; border-radius: 50%; flex: none;
-  background: radial-gradient(circle at 62% 30%, #ffe3b5 0%, #f6a24d 38%, #e6772b 64%, #b5541b 100%);
-  box-shadow: 0 3px 14px rgba(230, 119, 43, 0.42), inset 0 -3px 7px rgba(120, 50, 12, 0.32), inset 0 2px 6px rgba(255, 232, 195, 0.55);
-}
+.brand { font-family: var(--sans); font-style: italic; font-size: 27px; line-height: 1; letter-spacing: -0.02em; font-weight: 700; color: var(--accent); }
 
 /* ---- glass / cards ---- */
 .glass {
@@ -68,12 +63,12 @@ select.filter { background: var(--glass-2); border: 1px solid var(--line); color
 .toggle { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12.5px; user-select: none; cursor: pointer; }
 .toggle input { accent-color: var(--accent); }
 
-/* second filter row: status chips + value/ROI ranges */
+/* second filter row: status chips + price/ROI presets */
 .filters2 { margin-top: -6px; }
 .fdivider { width: 1px; height: 22px; background: var(--line-2); margin: 0 4px; }
-.mini-filter { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12.5px; }
-.mini-input { width: 64px; background: var(--glass-2); border: 1px solid var(--line); color: var(--ink); border-radius: 8px; padding: 6px 8px; font-size: 12.5px; }
-.mini-input:focus { outline: none; border-color: var(--accent); }
+.fgroup { font-size: 10px; text-transform: uppercase; letter-spacing: .09em; font-weight: 700; color: var(--muted-2); margin: 0 2px 0 4px; }
+.filters2 .toggle-btn { border-radius: 20px; }
+.filters2 .toggle-btn.active { background: var(--accent); color: #fff; border-color: transparent; box-shadow: 0 2px 8px rgba(224,120,44,0.35); }
 
 /* ---- config panel ---- */
 .config-panel { padding: 20px 22px; margin-bottom: 18px; }

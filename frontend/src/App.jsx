@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState } from 'react'
 import { getMeta, getPlayers, getDraft } from './api.js'
 import RankingTable from './components/RankingTable.jsx'
 import PlayerView from './components/PlayerView.jsx'
@@ -42,23 +42,15 @@ export default function App() {
     return () => clearTimeout(t)
   }, [config, lastPickNo])
 
-  const onConfigChange = useCallback((patch) => {
-    setConfig((c) => {
-      const next = { ...c, ...patch }
-      try { localStorage.setItem(STORE, JSON.stringify(next)) } catch (e) {}
-      return next
-    })
-  }, [])
-
   if (loading || !config) return <div className="app"><div className="loading">Loading…</div></div>
 
   return (
     <div className="app">
       <div className="topbar">
-        <div className="brand"><span className="logo-orb" />legends of the ball</div>
+        <div className="brand">dynasty maxxing</div>
       </div>
 
-      <RankingTable players={players} config={config} onConfigChange={onConfigChange} onSelect={setSelected} />
+      <RankingTable players={players} onSelect={setSelected} />
       {selected && <PlayerView key={selected} id={selected} config={config} onBack={() => setSelected(null)} onOpen={setSelected} />}
     </div>
   )

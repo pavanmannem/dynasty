@@ -39,7 +39,9 @@ function StatRow({ label, team, s, cls, computedPct }) {
       <td className="num">{f1(s.stl)}</td>
       <td className="num">{f1(s.blk)}</td>
       <td className="num">{f1(s.tov)}</td>
+      <td className="num">{f1(s.fga)}</td>
       <td className="num">{computedPct ? pctc(s.fgm, s.fga) : pctf(s.fg_pct)}</td>
+      <td className="num">{f1(s.fg3a)}</td>
       <td className="num">{computedPct ? pctc(s.fg3m, s.fg3a) : pctf(s.fg3_pct)}</td>
       <td className="num">{computedPct ? pctc(s.ftm, s.fta) : pctf(s.ft_pct)}</td>
       <td className="num fpg">{f1(s.fpg ?? s.proj_fpg)}</td>
@@ -198,13 +200,13 @@ export default function PlayerView({ id, config, onBack, onOpen }) {
         <div className="scroll-x">
           <table className="stat-table">
             <thead><tr>
-              {['Season', 'Tm', 'GP', 'MPG', 'PTS', 'REB', 'AST', 'STL', 'BLK', 'TOV', 'FG%', '3P%', 'FT%', 'FP/G'].map((h, i) =>
+              {['Season', 'Tm', 'GP', 'MPG', 'PTS', 'REB', 'AST', 'STL', 'BLK', 'TOV', 'FGA', 'FG%', '3PA', '3P%', 'FT%', 'FP/G'].map((h, i) =>
                 <th key={h} className={i < 2 ? 'left' : ''}>{h}</th>)}
             </tr></thead>
             <tbody>
               {proj && sc.from_projection && <StatRow label="2026-27" team="proj" s={{ ...proj }} cls="proj-row" computedPct />}
               {seasons.map((s) => <StatRow key={s.season} label={s.season} team={s.team} s={s} />)}
-              {seasons.length === 0 && !proj && <tr><td colSpan="14" className="left" style={{ color: 'var(--muted)' }}>No stats or projection available.</td></tr>}
+              {seasons.length === 0 && !proj && <tr><td colSpan="16" className="left" style={{ color: 'var(--muted)' }}>No stats or projection available.</td></tr>}
             </tbody>
           </table>
         </div>
