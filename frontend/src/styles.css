@@ -288,6 +288,7 @@ tbody tr:last-child td { border-bottom: none; }
   .toolbar.filters2.open { display: flex; margin-top: 2px; }
   .fdivider { display: none; }
   .fgroup { flex-basis: 100%; margin: 6px 0 0; }
+  .popover { left: 50%; transform: translateX(-50%); min-width: 210px; max-width: calc(100vw - 28px); }
 
   /* table: only the essentials — #, player, POS, FP/G, value */
   .hide-sm, .hide-xs { display: none; }
