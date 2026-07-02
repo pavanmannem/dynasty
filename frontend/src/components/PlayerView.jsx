@@ -1,6 +1,14 @@
 import React, { useEffect, useState } from 'react'
 import { getPlayer } from '../api.js'
-import { playerGradient } from '../gradient.js'
+
+// Each player gets one of the ASCII-gradient backdrops, deterministically.
+const N_BACKDROPS = 4
+function backdropFor(seed) {
+  let h = 2166136261
+  const s = String(seed)
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) }
+  return `/backdrops/bd${((h >>> 0) % N_BACKDROPS) + 1}.jpg`
+}
 
 function CareerBars({ seasons }) {
   const pts = [...seasons].reverse().map((s) => ({ season: s.season, fpg: s.fpg || 0 }))
@@ -113,7 +121,9 @@ export default function PlayerView({ id, config, onBack, onOpen }) {
       {closeBtn}
       <div className="modal fade">
       <div className="pv-hero">
-        <div className="pv-hero-art" style={{ backgroundImage: playerGradient(p.id_player) }} />
+        <div className="pv-hero-art" style={{ backgroundImage: `url(${backdropFor(p.id_player)})` }} />
+        <div className="pv-hero-shade" />
+        <div className="pv-hero-grain" />
         <div className="pv-hero-inner">
           {photo ? <img className="pv-photo" src={photo} alt="" /> : <div className="pv-photo" />}
           <div className="pv-id">

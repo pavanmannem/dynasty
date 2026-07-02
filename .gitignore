@@ -22,3 +22,6 @@ data/*.log
 .claude/
 .vercel/
 .DS_Store
+
+# backdrop source originals (optimized copies live in frontend/public/backdrops)
+frontend/backdrops/
