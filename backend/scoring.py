@@ -237,6 +237,19 @@ def assign_values(scores: List[Dict[str, Any]], cfg: Dict[str, Any]) -> List[Dic
         s.pop("w", None)
 
     ranked.sort(key=lambda s: s["value"], reverse=True)
+    pos_counts: Dict[str, int] = {}
     for rank, s in enumerate(ranked, start=1):
         s["rank"] = rank
+        # ROI: projected production per auction dollar. Cost basis is what was
+        # actually paid if drafted, else the model's value (floored at $1).
+        cost = float(s["draft_price"]) if s.get("draft_price") else max(1.0, s["value"])
+        s["cost"] = round(cost, 1)
+        s["roi"] = round(s["production"] / cost, 2) if cost > 0 else None
+        # Rank within primary position (by value).
+        pos = (s.get("elig_pos") or s.get("sleeper_pos") or s.get("position") or "").split(",")[0].strip()
+        if pos:
+            pos_counts[pos] = pos_counts.get(pos, 0) + 1
+            s["pos_rank"] = "{} #{}".format(pos, pos_counts[pos])
+        else:
+            s["pos_rank"] = None
     return ranked

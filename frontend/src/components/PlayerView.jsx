@@ -51,7 +51,7 @@ function StatRow({ label, team, s, cls, computedPct }) {
   )
 }
 
-export default function PlayerView({ id, config, onBack }) {
+export default function PlayerView({ id, config, onBack, onOpen }) {
   const [d, setD] = useState(null)
   useEffect(() => { setD(null); getPlayer(id, config).then(setD) }, [id, config])
   useEffect(() => {
@@ -108,9 +108,9 @@ export default function PlayerView({ id, config, onBack }) {
 
       <div className="metrics">
         <div className="glass metric"><div className="k">Auction value</div><div className="v money">${Math.round(sc.value)}</div><div className="sub">of $4,800 pool</div></div>
-        <div className="glass metric"><div className="k">Our rank</div><div className="v">#{sc.rank}</div><div className="sub">{d.tier}</div></div>
+        <div className="glass metric"><div className="k">Position rank</div><div className="v">{sc.pos_rank || '—'}</div><div className="sub">at his slot, by value</div></div>
+        <div className="glass metric"><div className="k">ROI</div><div className="v">{sc.roi != null ? Number(sc.roi).toFixed(2) : '—'}</div><div className="sub">FP/G per $ {sc.drafted ? 'paid' : 'of value'}</div></div>
         <div className="glass metric"><div className="k">Sleeper ADP</div><div className="v">{sc.sleeper_rank ? '#' + sc.sleeper_rank : '—'}</div><div className="sub">dynasty consensus</div></div>
-        <div className="glass metric"><div className="k">Proj FP/G</div><div className="v">{f1(sc.production)}</div><div className="sub">{basis_label || '—'}</div></div>
         <div className="glass metric"><div className="k">True shooting</div><div className="v">{ts ? (ts * 100).toFixed(1) + '%' : '—'}</div><div className="sub">efficiency</div></div>
       </div>
 
@@ -208,7 +208,37 @@ export default function PlayerView({ id, config, onBack }) {
           </div>
         </div>
       </div>
+
+      {(d.comps?.cheaper?.length || d.comps?.pricier?.length) ? (
+        <div className="glass card">
+          <h3>Similar production, different price</h3>
+          <div className="comps-grid">
+            <div>
+              <div className="comps-head up">Better value at ~{f1(sc.production)} FP/G</div>
+              {d.comps.cheaper.length === 0 && <div className="comps-empty">Nobody cheaper at this level</div>}
+              {d.comps.cheaper.map((c) => <CompRow key={c.id_player} c={c} onOpen={onOpen} />)}
+            </div>
+            <div>
+              <div className="comps-head down">Pricier at the same level</div>
+              {d.comps.pricier.length === 0 && <div className="comps-empty">Nobody pricier at this level</div>}
+              {d.comps.pricier.map((c) => <CompRow key={c.id_player} c={c} onOpen={onOpen} />)}
+            </div>
+          </div>
+        </div>
+      ) : null}
       </div>
     </div>
+  )
+}
+
+function CompRow({ c, onOpen }) {
+  return (
+    <button className="comp-row" onClick={() => onOpen && onOpen(c.id_player)}>
+      <span className="art sm">{c.headshot && <img src={c.headshot} alt="" loading="lazy" />}</span>
+      <span className="comp-name">{c.name}<span className="comp-team">{c.team}</span></span>
+      <span className="comp-stats">
+        <b>{Number(c.production).toFixed(1)}</b> FP/G · <b>${Math.round(c.cost)}</b>{c.drafted ? ' paid' : ''} · ROI <b>{Number(c.roi).toFixed(2)}</b>
+      </span>
+    </button>
   )
 }

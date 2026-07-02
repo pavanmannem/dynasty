@@ -130,13 +130,50 @@ def main() -> None:
     espn_idx = {sleeper.norm_name(r["name"]): r["id_player"]
                 for r in conn.execute("SELECT id_player, name FROM players").fetchall()}
     matched = 0
+    unmatched = []
     for key, proj in projs.items():
         pid = espn_idx.get(key)
         if pid:
             db.upsert_projection(conn, pid, proj)
             matched += 1
+        else:
+            unmatched.append(proj)
     conn.commit()
     print("  matched {}/{} projections to rostered players".format(matched, len(projs)))
+
+    # ESPN's team rosters miss anyone without a team (free agents like LeBron in
+    # July 2026). Create player rows from Sleeper for every unmatched player with
+    # a real projection, so the whole draftable universe is on the board.
+    meta = sleeper.fetch_players_meta(use_cache=not force)
+    added = 0
+    for proj in unmatched:
+        if not (proj.get("proj_fpg") or 0) > 0:
+            continue  # skip the G-league/zero-projection tail
+        spid = str(proj.get("sleeper_pid") or "")
+        if not spid:
+            continue
+        m = meta.get(spid) or {}
+        db.upsert_player(conn, {
+            "id_player": "sl" + spid,
+            "name": proj["name"],
+            "id_team": None,
+            "team_name": m.get("team") or proj.get("team") or "Free Agent",
+            "team_abbr": m.get("team") or proj.get("team") or "FA",
+            "position": proj.get("position"),
+            "date_born": m.get("birth_date"),
+            "age_espn": m.get("age"),
+            "height": m.get("height"), "weight": m.get("weight"),
+            "college": m.get("college"), "jersey": m.get("number"),
+            "experience": proj.get("years_exp"),
+            "debut_year": None,
+            "injury_status": proj.get("injury_status") or "",
+            "status": "FA",
+            "headshot": "https://sleepercdn.com/content/nba/players/{}.jpg".format(spid),
+        })
+        db.upsert_projection(conn, "sl" + spid, proj)
+        added += 1
+    conn.commit()
+    print("  added {} Sleeper-only players (free agents etc.)".format(added))
 
     np = conn.execute("SELECT COUNT(*) FROM players").fetchone()[0]
     ws = conn.execute("SELECT COUNT(DISTINCT id_player) FROM player_seasons").fetchone()[0]

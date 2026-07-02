@@ -55,11 +55,11 @@ export default function App() {
   return (
     <div className="app">
       <div className="topbar">
-        <div className="brand"><span className="logo-orb" />dynasty</div>
+        <div className="brand"><span className="logo-orb" />legends of the ball</div>
       </div>
 
       <RankingTable players={players} config={config} onConfigChange={onConfigChange} onSelect={setSelected} />
-      {selected && <PlayerView key={selected} id={selected} config={config} onBack={() => setSelected(null)} />}
+      {selected && <PlayerView key={selected} id={selected} config={config} onBack={() => setSelected(null)} onOpen={setSelected} />}
     </div>
   )
 }

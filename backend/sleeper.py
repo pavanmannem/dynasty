@@ -87,6 +87,26 @@ def load_projections(weights: Dict[str, float], use_cache: bool = True,
             "position": p.get("position") or (fpos[0] if fpos else None),
             "fantasy_positions": fpos,
             "sleeper_pid": rec.get("player_id"),
+            "team": p.get("team"),
             "stats": stats,
         }
     return out
+
+
+PLAYERS_META_CACHE = os.path.join(config.DATA_DIR, "cache", "sleeper_players_meta.json")
+
+
+def fetch_players_meta(use_cache: bool = True) -> Dict[str, Dict[str, Any]]:
+    """Sleeper's full NBA players dump (public): pid -> {birth_date, team, ...}.
+    Used to backfill birth dates for players ESPN's team rosters miss (free agents)."""
+    if use_cache and os.path.exists(PLAYERS_META_CACHE):
+        with open(PLAYERS_META_CACHE) as fh:
+            return json.load(fh)
+    r = requests.get("https://api.sleeper.app/v1/players/nba",
+                     headers={"user-agent": "Mozilla/5.0"}, timeout=60)
+    r.raise_for_status()
+    data = r.json()
+    os.makedirs(os.path.dirname(PLAYERS_META_CACHE), exist_ok=True)
+    with open(PLAYERS_META_CACHE, "w") as fh:
+        json.dump(data, fh)
+    return data

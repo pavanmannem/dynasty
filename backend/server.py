@@ -89,7 +89,8 @@ _LIST_FIELDS = ("rank", "id_player", "name", "team", "position", "age", "latest_
                 "s_pts", "s_reb", "s_ast", "s_blk", "s_stl", "s_fg_pct", "s_fg3_pct", "s_ts", "s_fpg",
                 "raw_score", "value", "auto_value",
                 "var", "drafted", "draft_price", "draft_owner", "market_delta",
-                "n_seasons", "experience", "injury_status", "headshot", "sleeper_rank", "watched")
+                "n_seasons", "experience", "injury_status", "headshot", "sleeper_rank", "watched",
+                "roi", "cost", "pos_rank")
 
 
 @app.get("/api/meta")
@@ -160,11 +161,31 @@ def player_detail(id_player: str, config: Optional[str] = None) -> Dict[str, Any
         prow2 = conn.execute("SELECT * FROM projections WHERE id_player=?", (id_player,)).fetchone()
         projection = dict(prow2) if prow2 else None
         score = scoring.player_score(player, seasons, ov, projection, cfg)
-        for s in _load_all(conn, cfg)["ranked"]:  # pool-accurate rank/value + sleeper rank
+        ranked = _load_all(conn, cfg)["ranked"]
+        me = None
+        for s in ranked:  # pool-accurate rank/value + sleeper rank + roi/pos_rank
             if s["id_player"] == id_player:
+                me = s
                 score.update({k: s.get(k) for k in ("rank", "value", "auto_value", "var",
-                                                    "market_delta", "sleeper_rank")})
+                                                    "market_delta", "sleeper_rank",
+                                                    "roi", "cost", "pos_rank")})
                 break
+
+        # Comparables: players producing at a similar level, split by cost efficiency.
+        comps = {"cheaper": [], "pricier": []}
+        if me and me["production"] > 0:
+            band = max(3.0, me["production"] * 0.12)
+            similar = [s for s in ranked
+                       if s["id_player"] != id_player and s.get("roi")
+                       and abs(s["production"] - me["production"]) <= band]
+            fields = ("id_player", "name", "team", "production", "cost", "roi",
+                      "value", "drafted", "draft_price", "headshot")
+            slim = lambda s: {k: s.get(k) for k in fields}
+            my_roi = me.get("roi") or 0
+            comps["cheaper"] = [slim(s) for s in sorted(
+                (x for x in similar if x["roi"] > my_roi), key=lambda x: -x["roi"])[:5]]
+            comps["pricier"] = [slim(s) for s in sorted(
+                (x for x in similar if x["roi"] <= my_roi), key=lambda x: x["roi"])[:5]]
 
         # Explain the value: FP/G category breakdown of the production basis + TS%.
         w = cfg["scoring_weights"]
@@ -180,7 +201,7 @@ def player_detail(id_player: str, config: Optional[str] = None) -> Dict[str, Any
         team = conn.execute("SELECT * FROM teams WHERE id_team=?", (player.get("id_team"),)).fetchone()
         return {"player": player, "team": dict(team) if team else None, "score": score,
                 "seasons": seasons, "projection": projection, "breakdown": breakdown,
-                "basis_label": basis_label, "true_shooting": ts,
+                "basis_label": basis_label, "true_shooting": ts, "comps": comps,
                 "tier": _tier(score.get("value", 0))}
     finally:
         conn.close()
