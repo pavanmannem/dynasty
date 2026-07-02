@@ -140,7 +140,7 @@ tbody tr:last-child td { border-bottom: none; }
 
 /* ---- player view ---- */
 .pv-back { margin-bottom: 20px; }
-.pv-hero { position: relative; border-radius: 22px; overflow: hidden; margin-bottom: 20px; min-height: 210px; display: flex; align-items: flex-end; border: 1px solid var(--line); box-shadow: 0 12px 34px rgba(0, 0, 0, 0.08); }
+.pv-hero { position: relative; border-radius: 22px; overflow: hidden; margin-bottom: 20px; min-height: 210px; display: flex; align-items: flex-end; }
 .pv-hero-art { position: absolute; inset: 0; background-size: cover; background-position: center; filter: blur(26px) saturate(115%); transform: scale(1.25); }
 .pv-hero-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(8,8,11,0.1) 0%, rgba(8,8,11,0.48) 55%, rgba(8,8,11,0.88) 100%); }
 .pv-hero-inner { position: relative; display: flex; align-items: flex-end; gap: 22px; padding: 26px 28px; width: 100%; }
