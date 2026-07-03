@@ -31,23 +31,49 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, List, Optional, Tuple
 
-# Empirical median YoY FP/G change by age (Q2 of discovery; >=25gp pairs, n=1294).
+# Empirical median YoY FP/G change by age (all players; kept for reference).
 AGE_CURVE = [(20, 0.187), (22, 0.091), (24, 0.039), (26, 0.019),
              (28, -0.025), (30, -0.039), (32, -0.056), (34, -0.064)]
 
-# Damped cohort corrections to Sleeper's implied YoY (half the measured gap).
-def _sleeper_correction(exp: Optional[int]) -> float:
-    if exp is None:
-        return 0.0
-    if exp <= 1:
-        return 0.095
-    if exp == 2:
-        return 0.115
-    if exp <= 4:
-        return 0.077
-    if exp <= 9:
-        return 0.043
-    return -0.015
+# PRODUCTION-CONDITIONAL YoY curve (tier x age medians from the 10y backtest;
+# n=1294 pairs). Key insight: the big youth growth belongs to ROLE players --
+# young stars barely grow, and elite seasons partly regress. Thin cells
+# (young superstars n=7) are damped toward the neighboring tier.
+#   tiers by prior-season FP/G: 55+, 45-55, 30-45, <30
+#   ages: young <25, prime 25-29, vet 30+
+TIER_AGE_YOY = {
+    ("55+", "young"): 0.05,   ("55+", "prime"): -0.002, ("55+", "vet"): -0.072,
+    ("45+", "young"): 0.008,  ("45+", "prime"): -0.042, ("45+", "vet"): -0.030,
+    ("30+", "young"): 0.075,  ("30+", "prime"): -0.017, ("30+", "vet"): -0.065,
+    ("lo",  "young"): 0.175,  ("lo",  "prime"): 0.081,  ("lo",  "vet"): -0.070,
+}
+
+# Sleeper de-bias, also tier x age: half of (empirical actual - sleeper implied)
+# measured on the 2025-26 -> 26-27 projection set. Star tiers need MORE
+# correction than the old experience buckets gave them; old role players need a
+# NEGATIVE one (Sleeper is too rosy there). Thin cells damped/zeroed.
+SLEEPER_CORR = {
+    ("55+", "young"): 0.06,  ("55+", "prime"): 0.0,    ("55+", "vet"): 0.0,
+    ("45+", "young"): 0.05,  ("45+", "prime"): 0.033,  ("45+", "vet"): 0.004,
+    ("30+", "young"): 0.055, ("30+", "prime"): 0.010,  ("30+", "vet"): -0.030,
+    ("lo",  "young"): 0.120, ("lo",  "prime"): 0.079,  ("lo",  "vet"): -0.055,
+}
+
+
+def _tier(fpg: float) -> str:
+    if fpg >= 55:
+        return "55+"
+    if fpg >= 45:
+        return "45+"
+    if fpg >= 30:
+        return "30+"
+    return "lo"
+
+
+def _ageb(age: Optional[float]) -> str:
+    if age is None:
+        return "prime"
+    return "young" if age < 25 else ("prime" if age < 30 else "vet")
 
 
 RUST = 0.85          # FP/G decay for a fully missed most-recent season
@@ -121,7 +147,7 @@ def build_forecast(player: Dict[str, Any], seasons: List[Dict[str, Any]],
     played = [s for s in seasons if (s.get("gp") or 0) >= 15]
     if not played:
         if proj_fpg and proj_fpg > 0:  # sleeper covers a couple of rookies
-            fpg = float(proj_fpg) * (1 + _sleeper_correction(exp))
+            fpg = float(proj_fpg) * (1 + SLEEPER_CORR[("lo", "young")])
             parts["sleeper_adj"] = round(fpg, 1)
             src = "market"
         else:
@@ -132,28 +158,29 @@ def build_forecast(player: Dict[str, Any], seasons: List[Dict[str, Any]],
         return {"fpg": round(fpg, 2), "gp_rate": round(max(gp_rate, ROOKIE_GP if not by else gp_rate), 3),
                 "source": src, "parts": parts}
 
-    # --- veteran trajectory ----------------------------------------------
+    # --- veteran trajectory (production-conditional aging) -----------------
     played.sort(key=lambda s: s["season"], reverse=True)
     last = played[0]
     base = last["fpg"] or 0.0
+    key = (_tier(base), _ageb(age))
     # damped momentum from the season before that
     if len(played) > 1 and int(played[0]["season"][:4]) - int(played[1]["season"][:4]) == 1:
         base += 0.30 * ((played[0]["fpg"] or 0) - (played[1]["fpg"] or 0)) * 0.5
-    trajectory = base * (1 + age_yoy(age))
+    trajectory = base * (1 + TIER_AGE_YOY[key])
     missed = last["season"] != "2025-26"
     if missed:
-        # apply the age curve for each missed year + rust
+        # apply the aging curve for each missed year + rust
         yrs_missed = min(2, 2026 - 1 - int(last["season"][:4]))
         for _ in range(max(0, yrs_missed)):
-            trajectory *= (1 + age_yoy(age))
+            trajectory *= (1 + TIER_AGE_YOY[key])
         trajectory *= RUST
         parts["rust_years"] = yrs_missed
     parts["trajectory"] = round(trajectory, 1)
 
-    # --- de-biased sleeper ------------------------------------------------
+    # --- de-biased sleeper (tier x age keyed) -------------------------------
     sleeper_adj = None
     if proj_fpg and proj_fpg > 0:
-        sleeper_adj = float(proj_fpg) * (1 + _sleeper_correction(exp))
+        sleeper_adj = float(proj_fpg) * (1 + SLEEPER_CORR[key])
         parts["sleeper_adj"] = round(sleeper_adj, 1)
 
     # --- blend -------------------------------------------------------------
