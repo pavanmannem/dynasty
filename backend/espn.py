@@ -117,14 +117,16 @@ def _flatten_athlete(cats_def: List[Dict[str, Any]], athlete_cats: List[Dict[str
     return flat
 
 
-def get_season_stats(season_year: int, use_cache: bool = True) -> Dict[str, Dict[str, Any]]:
-    """Return {espn_athlete_id: {stat_key: value, '_name':..., '_pos':...}} for a season."""
+def get_season_stats(season_year: int, use_cache: bool = True,
+                     seasontype: int = 2) -> Dict[str, Dict[str, Any]]:
+    """Return {espn_athlete_id: {stat_key: value, '_name':..., '_pos':...}} for a season.
+    seasontype 2 = regular season, 3 = playoffs."""
     out: Dict[str, Dict[str, Any]] = {}
     page = 1
     cats_def: List[Dict[str, Any]] = []
     while True:
         url = ("{}/statistics/byathlete?region=us&lang=en&contentorigin=espn"
-               "&season={}&seasontype=2&limit=100&page={}").format(WEB, season_year, page)
+               "&season={}&seasontype={}&limit=100&page={}").format(WEB, season_year, seasontype, page)
         d = _get(url, use_cache=use_cache)
         if not d:
             break
@@ -142,4 +144,30 @@ def get_season_stats(season_year: int, use_cache: bool = True) -> Dict[str, Dict
         if page >= (pag.get("pages") or 1):
             break
         page += 1
+    return out
+
+
+# --- draft results (core API) ----------------------------------------------
+
+CORE = "https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba"
+
+
+def get_draft_picks(draft_year: int, use_cache: bool = True) -> Dict[str, int]:
+    """{player_display_name: overall_pick} for a draft year (both rounds).
+
+    The draft API's athlete refs live in a prospect id-space that does NOT match
+    NBA athlete ids, so we resolve each ref to a name and match on that."""
+    url = "{}/seasons/{}/draft/rounds?limit=10".format(CORE, draft_year)
+    d = _get(url, use_cache=use_cache) or {}
+    out: Dict[str, int] = {}
+    for rnd in d.get("items") or []:
+        for pick in rnd.get("picks") or []:
+            ref = ((pick.get("athlete") or {}).get("$ref") or "").replace("http://", "https://")
+            overall = pick.get("overall")
+            if not ref or not overall:
+                continue
+            a = _get(ref, use_cache=use_cache) or {}
+            name = a.get("displayName") or "{} {}".format(a.get("firstName", ""), a.get("lastName", "")).strip()
+            if name:
+                out[name] = int(overall)
     return out

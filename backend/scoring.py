@@ -140,31 +140,22 @@ def availability_multiplier(gp_rate: float, lam: float) -> float:
 
 def player_score(player: Dict[str, Any], seasons: List[Dict[str, Any]],
                  override: Dict[str, Any], projection: Optional[Dict[str, Any]],
-                 cfg: Dict[str, Any]) -> Dict[str, Any]:
+                 cfg: Dict[str, Any], playoff: Optional[Dict[str, Any]] = None,
+                 rookie_curve=(38.0, -6.5)) -> Dict[str, Any]:
     w = cfg["scoring_weights"]
     prod = base_production(seasons, w, cfg["recency_weights"])
     age = age_from_dob(player.get("date_born")) or (_n(player.get("age_espn")) or None)
 
-    # Production base = Sleeper's 2026-27 projection (forward-looking consensus,
-    # covers rookies and prices health/aging) — else recent historical FP/G.
+    # Our own 2026-27 forecast: de-biased Sleeper blended with an age-curve
+    # trajectory, playoff momentum, calendar-true availability, rookie curve.
+    import forecast as _fc
     proj = projection or {}
-    proj_fpg = proj.get("proj_fpg")
     adp = proj.get("adp_dynasty")
-    latest = prod["latest_fpg"]
-    if proj_fpg and float(proj_fpg) > 0:
-        pf = float(proj_fpg)
-        # Use the BETTER of the 2026-27 projection and the most recent actual season,
-        # so a conservative projection never assumes a player in form will decline.
-        if latest and latest > pf:
-            production, source = latest, "recent"
-        else:
-            production, source = pf, "projection"
-    else:
-        production, source = prod["bps"], "history"
+    proj_fpg = proj.get("proj_fpg")
+    fc = _fc.build_forecast(player, seasons, projection, playoff, rookie_curve, age)
+    production, source = fc["fpg"], fc["source"]
 
-    # Light availability (durability signal from recent games; rookies untouched).
-    av_basis = prod["gp_rate"] if prod["n_seasons"] else 1.0
-    av_mult = availability_multiplier(av_basis, cfg["lambda_av"])
+    av_mult = availability_multiplier(fc["gp_rate"], cfg["lambda_av"])
 
     # Age curve (dynasty multi-year runway) with a star floor for elite producers.
     age_mult = age_multiplier(age, cfg["theta"])
@@ -183,8 +174,8 @@ def player_score(player: Dict[str, Any], seasons: List[Dict[str, Any]],
         "team": player.get("team_abbr") or player.get("team_name"), "position": player.get("position"),
         "age": age, "bps": prod["bps"], "latest_fpg": prod["latest_fpg"],
         "latest_season": prod["latest_season"], "n_seasons": prod["n_seasons"],
-        "gp_rate": prod["gp_rate"], "production": round(production, 2),
-        "production_source": source, "from_projection": source == "projection",
+        "gp_rate": fc["gp_rate"], "production": round(production, 2),
+        "production_source": source, "forecast_parts": fc["parts"],
         "proj_fpg": round(float(proj_fpg), 2) if proj_fpg else None,
         "proj_pts": proj.get("pts"), "proj_reb": proj.get("reb"), "proj_ast": proj.get("ast"),
         "s_pts": rs.get("pts"), "s_reb": rs.get("reb"), "s_ast": rs.get("ast"),

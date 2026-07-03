@@ -164,7 +164,18 @@ export default function PlayerView({ id, config, onBack, onOpen }) {
         <div className="glass card">
           <h3>How we get to the value</h3>
           <div className="pipe-row">
-            <span className="lbl">Projected fantasy points / game</span>
+            <span className="lbl">Our 2026-27 forecast, FP/G
+              {(() => {
+                const fp = sc.forecast_parts || {}
+                const bits = []
+                if (fp.trajectory != null) bits.push(`trend ${fp.trajectory}`)
+                if (fp.sleeper_adj != null) bits.push(`market ${fp.sleeper_adj}`)
+                if (fp.playoff_bump != null) bits.push(`playoffs +${fp.playoff_bump}`)
+                if (fp.rust_years) bits.push('rust applied')
+                if (fp.rookie_curve != null) bits.push(`rookie curve${fp.draft_pick ? ', pick #' + fp.draft_pick : ''}`)
+                return bits.length ? <span className="sub">{bits.join(' · ')}</span> : null
+              })()}
+            </span>
             <span className="val">{f1(sc.production)}</span>
           </div>
           <div className="pipe-row">
@@ -207,7 +218,7 @@ export default function PlayerView({ id, config, onBack, onOpen }) {
                 <th key={h} className={i < 2 ? 'left' : ''}>{h}</th>)}
             </tr></thead>
             <tbody>
-              {proj && sc.from_projection && <StatRow label="2026-27" team="proj" s={{ ...proj }} cls="proj-row" computedPct />}
+              {proj && (proj.proj_fpg || 0) > 0 && <StatRow label="2026-27" team="mkt" s={{ ...proj }} cls="proj-row" computedPct />}
               {seasons.map((s) => <StatRow key={s.season} label={s.season} team={s.team} s={s} />)}
               {seasons.length === 0 && !proj && <tr><td colSpan="16" className="left" style={{ color: 'var(--muted)' }}>No stats or projection available.</td></tr>}
             </tbody>

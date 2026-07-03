@@ -110,6 +110,35 @@ def main() -> None:
         conn.commit()
         print("  {}: {} players".format(label, n))
 
+    print("== 2025-26 playoff stats (momentum signal) ==")
+    po = espn.get_season_stats(2026, use_cache=not force, seasontype=3)
+    n_po = 0
+    for aid, flat in po.items():
+        if aid not in player_set:
+            continue
+        row = season_row(flat)
+        if not row.get("gp"):
+            continue
+        db.upsert_playoffs(conn, aid, "2025-26", row["gp"], round(season_fp(row, w), 2))
+        n_po += 1
+    conn.commit()
+    print("  playoff lines stored: {}".format(n_po))
+
+    print("== draft slots (rookie model + curve calibration) ==")
+    import sleeper as _sl
+    name_to_pid = {_sl.norm_name(r["name"]): r["id_player"]
+                   for r in conn.execute("SELECT id_player, name FROM players").fetchall()}
+    n_dp = 0
+    for yr in (2024, 2025, 2026):
+        for nm, pick in espn.get_draft_picks(yr, use_cache=not force).items():
+            pid = name_to_pid.get(_sl.norm_name(nm))
+            if pid:
+                conn.execute("UPDATE players SET draft_pick=?, draft_year=? WHERE id_player=?",
+                             (pick, yr, pid))
+                n_dp += 1
+    conn.commit()
+    print("  draft slots mapped: {}".format(n_dp))
+
     print("== seed draft results ==")
     name_index: Dict[str, str] = {}
     for r in conn.execute("SELECT id_player, name FROM players").fetchall():

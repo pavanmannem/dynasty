@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 import db
 import scoring
+import forecast as _forecast
 
 app = FastAPI(title="Dynasty NBA Valuation Engine")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -45,6 +46,16 @@ def _load_all(conn, cfg: Dict[str, Any]) -> Dict[str, Any]:
         seasons.setdefault(r["id_player"], []).append(dict(r))
     overrides = db.all_overrides(conn)
     projections = db.all_projections(conn)
+    playoffs = {r["id_player"]: dict(r) for r in conn.execute("SELECT * FROM player_playoffs").fetchall()}
+    # Rookie draft-slot curve, fit on the 2024/2025 classes' actual rookie seasons.
+    samples = []
+    for pid, p in players.items():
+        if p.get("draft_year") in (2024, 2025) and p.get("draft_pick"):
+            label = "2024-25" if p["draft_year"] == 2024 else "2025-26"
+            for s in seasons.get(pid, []):
+                if s["season"] == label and (s.get("gp") or 0) >= 15:
+                    samples.append((p["draft_pick"], s.get("fpg") or 0))
+    rookie_curve = _forecast.fit_rookie_curve(samples)
     # Live Sleeper draft is the source of truth for who's drafted (and for how much);
     # it also re-calibrates the $ curve as real prices come in. Falls back to the
     # bundled seed if the feed is unavailable.
@@ -59,7 +70,8 @@ def _load_all(conn, cfg: Dict[str, Any]) -> Dict[str, Any]:
             ov["draft_price"] = pick["amount"] if pick else None
             ov["draft_owner"] = pick["owner"] if pick else None
         pr = projections.get(pid)
-        s = scoring.player_score(p, seasons.get(pid, []), ov, pr, cfg)
+        s = scoring.player_score(p, seasons.get(pid, []), ov, pr, cfg,
+                                 playoff=playoffs.get(pid), rookie_curve=rookie_curve)
         spid = (pr or {}).get("sleeper_pid")
         s["watched"] = 1 if (spid and str(spid) in watched_ids) else 0
         scores.append(s)
@@ -84,7 +96,7 @@ def _tier(v: float) -> str:
 
 
 _LIST_FIELDS = ("rank", "id_player", "name", "team", "position", "age", "latest_fpg", "bps",
-                "gp_rate", "av_mult", "age_mult", "production", "production_source", "from_projection",
+                "gp_rate", "av_mult", "age_mult", "production", "production_source",
                 "proj_fpg", "proj_pts", "proj_reb", "proj_ast", "sleeper_pos", "elig_pos", "adp_dynasty",
                 "s_pts", "s_reb", "s_ast", "s_blk", "s_stl", "s_fg_pct", "s_fga", "s_fg3a",
                 "s_fg3_pct", "s_ts", "s_fpg",
@@ -161,16 +173,9 @@ def player_detail(id_player: str, config: Optional[str] = None) -> Dict[str, Any
         ov = db.get_override(conn, id_player)
         prow2 = conn.execute("SELECT * FROM projections WHERE id_player=?", (id_player,)).fetchone()
         projection = dict(prow2) if prow2 else None
-        score = scoring.player_score(player, seasons, ov, projection, cfg)
         ranked = _load_all(conn, cfg)["ranked"]
-        me = None
-        for s in ranked:  # pool-accurate rank/value + sleeper rank + roi/pos_rank
-            if s["id_player"] == id_player:
-                me = s
-                score.update({k: s.get(k) for k in ("rank", "value", "auto_value", "var",
-                                                    "market_delta", "sleeper_rank",
-                                                    "roi", "cost", "pos_rank", "name_premium", "model_value", "market_value", "fp_rank")})
-                break
+        me = next((s for s in ranked if s["id_player"] == id_player), None)
+        score = me or scoring.player_score(player, seasons, ov, projection, cfg)
 
         # Comparables: players producing at a similar level, split by cost efficiency.
         comps = {"cheaper": [], "pricier": []}
@@ -190,7 +195,7 @@ def player_detail(id_player: str, config: Optional[str] = None) -> Dict[str, Any
 
         # Explain the value: FP/G category breakdown of the production basis + TS%.
         w = cfg["scoring_weights"]
-        if score.get("from_projection") and projection:
+        if projection and (projection.get("proj_fpg") or 0) > 0:
             basis, basis_label = projection, "2026-27 projection"
         elif seasons:
             basis, basis_label = seasons[0], seasons[0]["season"]
