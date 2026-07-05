@@ -35,8 +35,7 @@ CREATE TABLE IF NOT EXISTS players (
     position TEXT, date_born TEXT, age_espn REAL,
     height TEXT, weight TEXT, college TEXT, jersey TEXT,
     experience INTEGER, debut_year INTEGER,
-    injury_status TEXT, status TEXT, headshot TEXT,
-    draft_pick INTEGER, draft_year INTEGER
+    injury_status TEXT, status TEXT, headshot TEXT
 );
 
 CREATE TABLE IF NOT EXISTS player_seasons (

@@ -37,7 +37,6 @@ const COLS = [
   { key: 's_fg3_pct', label: '3P%', hide: true },
   { key: 's_ts', label: 'TS%', hide: true },
   { key: 's_fpg', label: 'FP/G' },
-  { key: 'production', label: "Proj '27" },
   { key: 'roi', label: 'ROI', xs: true },
   { key: 'value', label: 'Value' },
   { key: 'draft_price', label: 'Paid', xs: true },
@@ -124,7 +123,7 @@ export default function RankingTable({ players, onSelect }) {
     if (statusF === 'available') r = r.filter((p) => !p.drafted)
     else if (statusF === 'drafted') r = r.filter((p) => p.drafted)
     if (watchedOnly) r = r.filter((p) => p.watched)
-    if (rookiesOnly) r = r.filter((p) => p.experience === 0 && !p.n_seasons)  // true rookies: no NBA data yet
+    if (rookiesOnly) r = r.filter((p) => p.experience === 0)
     if (faOnly) r = r.filter((p) => p.team === 'FA')
     if (priceBand) {
       let lo = 0, hi = Infinity
@@ -273,7 +272,6 @@ export default function RankingTable({ players, onSelect }) {
                 <td className="num hide-sm">{pctd(p.s_fg3_pct)}</td>
                 <td className="num hide-sm">{pctd(p.s_ts)}</td>
                 <td className="num">{n1(p.s_fpg)}</td>
-                <td className="num">{n1(p.production)}</td>
                 <td className="num hide-xs">{p.roi == null ? '—' : Number(p.roi).toFixed(2)}</td>
                 <td><span className="value"><span className="dollar">$</span>{Math.round(p.value)}</span></td>
                 <td className="num hide-xs">{p.drafted && p.draft_price != null ? <span className="paid">${Math.round(p.draft_price)}</span> : '—'}</td>
