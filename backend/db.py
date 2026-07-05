@@ -35,13 +35,7 @@ CREATE TABLE IF NOT EXISTS players (
     position TEXT, date_born TEXT, age_espn REAL,
     height TEXT, weight TEXT, college TEXT, jersey TEXT,
     experience INTEGER, debut_year INTEGER,
-    injury_status TEXT, status TEXT, headshot TEXT,
-    draft_pick INTEGER, draft_year INTEGER
-);
-
-CREATE TABLE IF NOT EXISTS player_playoffs (
-    id_player TEXT PRIMARY KEY,
-    season TEXT, gp REAL, fpg REAL
+    injury_status TEXT, status TEXT, headshot TEXT
 );
 
 CREATE TABLE IF NOT EXISTS player_seasons (
@@ -145,12 +139,6 @@ def upsert_player(conn: sqlite3.Connection, p: Dict[str, Any]) -> None:
     upd = ",".join("{c}=excluded.{c}".format(c=c) for c in cols if c != "id_player")
     conn.execute("INSERT INTO players ({}) VALUES ({}) ON CONFLICT(id_player) DO UPDATE SET {}".format(
         ",".join(cols), ph, upd), vals)
-
-
-def upsert_playoffs(conn: sqlite3.Connection, id_player: str, season: str, gp: float, fpg: float) -> None:
-    conn.execute("INSERT INTO player_playoffs (id_player, season, gp, fpg) VALUES (?,?,?,?) "
-                 "ON CONFLICT(id_player) DO UPDATE SET season=excluded.season, gp=excluded.gp, fpg=excluded.fpg",
-                 (id_player, season, gp, fpg))
 
 
 def upsert_player_season(conn: sqlite3.Connection, id_player: str, season: str, team: str,
