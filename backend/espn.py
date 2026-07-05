@@ -137,9 +137,39 @@ def get_season_stats(season_year: int, use_cache: bool = True) -> Dict[str, Dict
             flat = _flatten_athlete(cats_def, a.get("categories") or [])
             flat["_name"] = ath.get("displayName")
             flat["_pos"] = (ath.get("position") or {}).get("abbreviation")
+            flat["_team"] = ath.get("teamShortName")   # team of THAT season
+            flat["_headshot"] = (ath.get("headshot") or {}).get("href") if isinstance(ath.get("headshot"), dict) else ath.get("headshot")
+            flat["_age"] = ath.get("age")
+            flat["_debut"] = ath.get("debutYear")
             out[aid] = flat
         pag = d.get("pagination") or {}
         if page >= (pag.get("pages") or 1):
             break
         page += 1
+    return out
+
+
+# --- draft results (core API) ----------------------------------------------
+
+CORE = "https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba"
+
+
+def get_draft_picks(draft_year: int, use_cache: bool = True) -> Dict[str, int]:
+    """{player_display_name: overall_pick} for a draft year (both rounds).
+
+    The draft API's athlete refs live in a prospect id-space that does NOT match
+    NBA athlete ids, so we resolve each ref to a name and match on that."""
+    url = "{}/seasons/{}/draft/rounds?limit=10".format(CORE, draft_year)
+    d = _get(url, use_cache=use_cache) or {}
+    out: Dict[str, int] = {}
+    for rnd in d.get("items") or []:
+        for pick in rnd.get("picks") or []:
+            ref = ((pick.get("athlete") or {}).get("$ref") or "").replace("http://", "https://")
+            overall = pick.get("overall")
+            if not ref or not overall:
+                continue
+            a = _get(ref, use_cache=use_cache) or {}
+            name = a.get("displayName") or "{} {}".format(a.get("firstName", ""), a.get("lastName", "")).strip()
+            if name:
+                out[name] = int(overall)
     return out

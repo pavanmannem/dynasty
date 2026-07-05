@@ -138,27 +138,44 @@ def availability_multiplier(gp_rate: float, lam: float) -> float:
 
 # --- Layer 5+: composite score for one player ------------------------------
 
+def fit_rookie_curve(samples):
+    """Fit fpg = a + b*ln(pick) on (pick, rookie-season fpg) samples from past
+    draft classes. Falls back to a sane prior if the sample is thin."""
+    import math
+    pts = [(p, f) for p, f in samples if p and f and f > 5]
+    if len(pts) < 15:
+        return 38.0, -6.5
+    xs = [math.log(p) for p, _ in pts]
+    ys = [f for _, f in pts]
+    n = len(xs)
+    mx, my = sum(xs) / n, sum(ys) / n
+    b = sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / (sum((x - mx) ** 2 for x in xs) or 1)
+    return my - b * mx, b
+
+
+def rookie_fpg(pick, curve):
+    import math
+    a, b = curve
+    return max(8.0, a + b * math.log(max(1, pick or 45)))
+
+
 def player_score(player: Dict[str, Any], seasons: List[Dict[str, Any]],
                  override: Dict[str, Any], projection: Optional[Dict[str, Any]],
-                 cfg: Dict[str, Any]) -> Dict[str, Any]:
+                 cfg: Dict[str, Any], rookie_curve=(38.0, -6.5)) -> Dict[str, Any]:
     w = cfg["scoring_weights"]
     prod = base_production(seasons, w, cfg["recency_weights"])
     age = age_from_dob(player.get("date_born")) or (_n(player.get("age_espn")) or None)
 
-    # Production base = Sleeper's 2026-27 projection (forward-looking consensus,
-    # covers rookies and prices health/aging) — else recent historical FP/G.
+    # Production = Sleeper's 2026-27 forecast, exclusively (no max with last
+    # season). Dataless rookies get the draft-slot curve; the remaining few
+    # (played but never projected) fall back to recent history.
     proj = projection or {}
     proj_fpg = proj.get("proj_fpg")
     adp = proj.get("adp_dynasty")
-    latest = prod["latest_fpg"]
     if proj_fpg and float(proj_fpg) > 0:
-        pf = float(proj_fpg)
-        # Use the BETTER of the 2026-27 projection and the most recent actual season,
-        # so a conservative projection never assumes a player in form will decline.
-        if latest and latest > pf:
-            production, source = latest, "recent"
-        else:
-            production, source = pf, "projection"
+        production, source = float(proj_fpg), "projection"
+    elif prod["n_seasons"] == 0:
+        production, source = rookie_fpg(player.get("draft_pick"), rookie_curve), "rookie-curve"
     else:
         production, source = prod["bps"], "history"
 

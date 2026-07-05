@@ -89,10 +89,47 @@ def main() -> None:
         print("  [{}/{}] {}: {}".format(i, len(teams), t["abbr"], len(roster)))
     players = list(dict.fromkeys(players))
     print("total players:", len(players))
+    player_set = set(players)
+
+    print("== free agents (played 2025-26 but on no roster) ==")
+    # ESPN's rosters miss anyone unsigned in July 2026 (LeBron etc.). The
+    # league-wide stats feed still has them — create real ESPN-id records so
+    # they get full stat histories and headshots like everyone else.
+    import sleeper as _sl
+    meta = _sl.fetch_players_meta(use_cache=not force)
+    meta_by_name = {}
+    for spid, m in meta.items():
+        nm = _sl.norm_name("{} {}".format(m.get("first_name", ""), m.get("last_name", "")))
+        meta_by_name.setdefault(nm, m)
+    latest = espn.get_season_stats(config.SEASON_YEARS[0], use_cache=not force)
+    n_fa = 0
+    for aid, flat in latest.items():
+        if aid in player_set or not flat.get("_name") or not flat.get("gamesPlayed"):
+            continue
+        m = meta_by_name.get(_sl.norm_name(flat["_name"])) or {}
+        db.upsert_player(conn, {
+            "id_player": aid,
+            "name": flat["_name"],
+            "id_team": None, "team_name": "Free Agent", "team_abbr": "FA",
+            "position": flat.get("_pos") or m.get("position"),
+            "date_born": m.get("birth_date"),
+            "age_espn": flat.get("_age") or m.get("age"),
+            "height": m.get("height"), "weight": m.get("weight"),
+            "college": m.get("college"), "jersey": m.get("number"),
+            "experience": m.get("years_exp"),
+            "debut_year": flat.get("_debut"),
+            "injury_status": m.get("injury_status") or "",
+            "status": "FA",
+            "headshot": flat.get("_headshot") or
+                        "https://a.espncdn.com/i/headshots/nba/players/full/{}.png".format(aid),
+        })
+        player_set.add(aid)
+        n_fa += 1
+    conn.commit()
+    print("  free agents added: {}".format(n_fa))
 
     print("== season stats ==")
     w = config.SCORING_WEIGHTS
-    player_set = set(players)
     for yr in config.SEASON_YEARS:
         label = espn.season_label(yr)
         stats = espn.get_season_stats(yr, use_cache=not force)
@@ -104,11 +141,26 @@ def main() -> None:
             if not row.get("gp"):
                 continue
             fpg = season_fp(row, w)
-            team = (id_to_team.get(aid) or {}).get("abbr")
+            # team of THAT season (falls back to current roster team)
+            team = flat.get("_team") or (id_to_team.get(aid) or {}).get("abbr")
             db.upsert_player_season(conn, aid, label, team, row, round(fpg, 2))
             n += 1
         conn.commit()
         print("  {}: {} players".format(label, n))
+
+    print("== draft slots (rookie forecasts + curve calibration) ==")
+    name_to_pid_all = {norm_name(r["name"]): r["id_player"]
+                       for r in conn.execute("SELECT id_player, name FROM players").fetchall()}
+    n_dp = 0
+    for yr in (2024, 2025, 2026):
+        for nm, pick in espn.get_draft_picks(yr, use_cache=not force).items():
+            pid = name_to_pid_all.get(norm_name(nm))
+            if pid:
+                conn.execute("UPDATE players SET draft_pick=?, draft_year=? WHERE id_player=?",
+                             (pick, yr, pid))
+                n_dp += 1
+    conn.commit()
+    print("  draft slots mapped: {}".format(n_dp))
 
     print("== seed draft results ==")
     name_index: Dict[str, str] = {}
