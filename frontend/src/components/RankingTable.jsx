@@ -41,6 +41,7 @@ const COLS = [
   { key: 'roi', label: 'ROI', xs: true },
   { key: 'value', label: 'Value' },
   { key: 'draft_price', label: 'Paid', xs: true },
+  { key: 'market_delta', label: 'Δ', xs: true },
 ]
 const TIER_ORDER = { elite: 1, star: 2, starter: 3, rotation: 4, flyer: 5 }
 const PRICE_BANDS = [
@@ -48,10 +49,10 @@ const PRICE_BANDS = [
   { id: '10-30', label: '$10–30', min: 10, max: 30 },
   { id: '30-50', label: '$30–50', min: 30, max: 50 },
 ]
-const ROI_BANDS = [
-  { id: '0.5', label: '0.5+', min: 0.5 },
-  { id: '1', label: '1+', min: 1 },
-  { id: '2', label: '2+', min: 2 },
+const FP_BANDS = [
+  { id: 'lt25', label: 'Under 25', min: 0, max: 25 },
+  { id: '25-40', label: '25–40', min: 25, max: 40 },
+  { id: '40+', label: '40+', min: 40, max: Infinity },
 ]
 
 const eligOf = (p) => (p.elig_pos || p.sleeper_pos || '').split(',').map((x) => x.trim()).filter(Boolean)
@@ -73,22 +74,24 @@ export default function RankingTable({ players, onSelect }) {
   const [priceBand, setPriceBand] = useState('')
   const [priceMin, setPriceMin] = useState('')
   const [priceMax, setPriceMax] = useState('')
-  const [roiBand, setRoiBand] = useState('')
-  const [roiMin, setRoiMin] = useState('')
+  const [fpBand, setFpBand] = useState('')
+  const [fpMin, setFpMin] = useState('')
+  const [fpMax, setFpMax] = useState('')
   // popover open state + draft values (committed on Apply)
   const [pricePop, setPricePop] = useState(false)
-  const [roiPop, setRoiPop] = useState(false)
+  const [fpPop, setFpPop] = useState(false)
   const [tmpPriceMin, setTmpPriceMin] = useState('')
   const [tmpPriceMax, setTmpPriceMax] = useState('')
-  const [tmpRoiMin, setTmpRoiMin] = useState('')
+  const [tmpFpMin, setTmpFpMin] = useState('')
+  const [tmpFpMax, setTmpFpMax] = useState('')
 
   const openPricePop = (o) => {
     if (typeof o === 'function' ? o(pricePop) : o) { setTmpPriceMin(priceMin); setTmpPriceMax(priceMax) }
     setPricePop(o)
   }
-  const openRoiPop = (o) => {
-    if (typeof o === 'function' ? o(roiPop) : o) { setTmpRoiMin(roiMin) }
-    setRoiPop(o)
+  const openFpPop = (o) => {
+    if (typeof o === 'function' ? o(fpPop) : o) { setTmpFpMin(fpMin); setTmpFpMax(fpMax) }
+    setFpPop(o)
   }
   const applyPrice = (e) => {
     e.preventDefault()
@@ -96,11 +99,11 @@ export default function RankingTable({ players, onSelect }) {
     setPriceBand(tmpPriceMin === '' && tmpPriceMax === '' ? '' : 'custom')
     setPricePop(false)
   }
-  const applyRoi = (e) => {
+  const applyFp = (e) => {
     e.preventDefault()
-    setRoiMin(tmpRoiMin)
-    setRoiBand(tmpRoiMin === '' ? '' : 'custom')
-    setRoiPop(false)
+    setFpMin(tmpFpMin); setFpMax(tmpFpMax)
+    setFpBand(tmpFpMin === '' && tmpFpMax === '' ? '' : 'custom')
+    setFpPop(false)
   }
 
   const positions = ['PG', 'SG', 'SF', 'PF', 'C']
@@ -113,7 +116,7 @@ export default function RankingTable({ players, onSelect }) {
           : p[k])
 
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const nActive = [statusF, watchedOnly, rookiesOnly, faOnly, priceBand, roiBand].filter(Boolean).length
+  const nActive = [statusF, watchedOnly, rookiesOnly, faOnly, priceBand, fpBand].filter(Boolean).length
   const anyFilter = nActive > 0
 
   const rows = useMemo(() => {
@@ -137,9 +140,16 @@ export default function RankingTable({ players, onSelect }) {
       }
       r = r.filter((p) => { const c = p.drafted ? p.draft_price : p.value; return c >= lo && c < hi })
     }
-    if (roiBand) {
-      const min = roiBand === 'custom' ? (roiMin === '' ? 0 : +roiMin) : ROI_BANDS.find((x) => x.id === roiBand).min
-      r = r.filter((p) => (p.roi ?? -1) >= min)
+    if (fpBand) {
+      let lo = 0, hi = Infinity
+      if (fpBand === 'custom') {
+        lo = fpMin === '' ? 0 : +fpMin
+        hi = fpMax === '' ? Infinity : +fpMax
+      } else {
+        const b = FP_BANDS.find((x) => x.id === fpBand)
+        lo = b.min; hi = b.max
+      }
+      r = r.filter((p) => (p.production ?? -1) >= lo && (p.production ?? -1) < hi)
     }
     const dir = sortDir === 'asc' ? 1 : -1
     return [...r].sort((a, b) => {
@@ -147,7 +157,7 @@ export default function RankingTable({ players, onSelect }) {
       if (typeof av === 'string') return dir * (av || '').localeCompare(bv || '')
       return dir * ((av ?? -1) - (bv ?? -1))
     })
-  }, [players, search, pos, team, statusF, watchedOnly, rookiesOnly, faOnly, priceBand, priceMin, priceMax, roiBand, roiMin, sortKey, sortDir])
+  }, [players, search, pos, team, statusF, watchedOnly, rookiesOnly, faOnly, priceBand, priceMin, priceMax, fpBand, fpMin, fpMax, sortKey, sortDir])
 
   const clickSort = (k) => {
     if (k === sortKey) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
@@ -209,22 +219,25 @@ export default function RankingTable({ players, onSelect }) {
           </form>
         </Popover>
         <span className="fdivider" />
-        <span className="fgroup">ROI</span>
-        {ROI_BANDS.map((b) => (
-          <button key={b.id} className={'btn sm toggle-btn' + (roiBand === b.id ? ' active' : '')}
-            onClick={() => setRoiBand((v) => (v === b.id ? '' : b.id))}>{b.label}</button>
+        <span className="fgroup">FP/G</span>
+        {FP_BANDS.map((b) => (
+          <button key={b.id} className={'btn sm toggle-btn' + (fpBand === b.id ? ' active' : '')}
+            onClick={() => setFpBand((v) => (v === b.id ? '' : b.id))}>{b.label}</button>
         ))}
         <Popover
-          chipLabel={roiBand === 'custom' ? `≥ ${roiMin}` : 'Custom'}
-          active={roiBand === 'custom'} open={roiPop} setOpen={openRoiPop}>
-          <form onSubmit={applyRoi}>
-            <div className="pop-title">Minimum ROI</div>
+          chipLabel={fpBand === 'custom' ? `${fpMin || '0'}–${fpMax || '∞'}` : 'Custom'}
+          active={fpBand === 'custom'} open={fpPop} setOpen={openFpPop}>
+          <form onSubmit={applyFp}>
+            <div className="pop-title">Projected FP/G range</div>
             <div className="pop-row">
-              <input type="number" step="0.1" className="mini-input" placeholder="e.g. 1.5" autoFocus
-                value={tmpRoiMin} onChange={(e) => setTmpRoiMin(e.target.value)} />
+              <input type="number" step="0.1" className="mini-input" placeholder="from" autoFocus
+                value={tmpFpMin} onChange={(e) => setTmpFpMin(e.target.value)} />
+              <span className="pop-dash">–</span>
+              <input type="number" step="0.1" className="mini-input" placeholder="to"
+                value={tmpFpMax} onChange={(e) => setTmpFpMax(e.target.value)} />
             </div>
             <div className="pop-actions">
-              <button type="button" className="btn sm ghost" onClick={() => setTmpRoiMin('')}>Reset</button>
+              <button type="button" className="btn sm ghost" onClick={() => { setTmpFpMin(''); setTmpFpMax('') }}>Reset</button>
               <button type="submit" className="btn sm primary">Apply</button>
             </div>
           </form>
@@ -232,7 +245,7 @@ export default function RankingTable({ players, onSelect }) {
         {anyFilter && (
           <button className="btn sm ghost" onClick={() => {
             setStatusF(''); setWatchedOnly(false); setRookiesOnly(false); setFaOnly(false)
-            setPriceBand(''); setPriceMin(''); setPriceMax(''); setRoiBand(''); setRoiMin('')
+            setPriceBand(''); setPriceMin(''); setPriceMax(''); setFpBand(''); setFpMin(''); setFpMax('')
           }}>Clear</button>
         )}
       </div>
@@ -277,6 +290,9 @@ export default function RankingTable({ players, onSelect }) {
                 <td className="num hide-xs">{p.roi == null ? '—' : Number(p.roi).toFixed(2)}</td>
                 <td><span className="value"><span className="dollar">$</span>{Math.round(p.value)}</span></td>
                 <td className="num hide-xs">{p.drafted && p.draft_price != null ? <span className="paid">${Math.round(p.draft_price)}</span> : '—'}</td>
+                <td className={'num hide-xs ' + (p.drafted && p.market_delta != null ? (p.market_delta > 0 ? 'up' : p.market_delta < 0 ? 'down' : '') : '')}>
+                  {p.drafted && p.market_delta != null ? (p.market_delta > 0 ? '+$' + Math.round(p.market_delta) : '−$' + Math.abs(Math.round(p.market_delta))) : '—'}
+                </td>
               </tr>
             ))}
           </tbody>

@@ -173,3 +173,24 @@ def get_draft_picks(draft_year: int, use_cache: bool = True) -> Dict[str, int]:
             if name:
                 out[name] = int(overall)
     return out
+
+
+def get_depth_chart(team_id: str, season: int = 2026, use_cache: bool = True) -> Dict[str, List[Any]]:
+    """{'PG': [(rank, athlete_id), ...], 'SG': ..., ...} for one team.
+
+    Athlete ids here are regular NBA athlete ids, so they join directly against
+    our players table."""
+    url = "{}/seasons/{}/teams/{}/depthcharts".format(CORE, season, team_id)
+    d = _get(url, use_cache=use_cache) or {}
+    out: Dict[str, List[Any]] = {}
+    for item in d.get("items") or []:
+        for slot, pdata in (item.get("positions") or {}).items():
+            abbr = ((pdata.get("position") or {}).get("abbreviation") or slot).upper()
+            rows = []
+            for a in pdata.get("athletes") or []:
+                ref = (a.get("athlete") or {}).get("$ref") or ""
+                aid = ref.split("?")[0].rstrip("/").split("/")[-1]
+                if aid.isdigit():
+                    rows.append((int(a.get("rank") or 99), aid))
+            out[abbr] = sorted(rows)
+    return out

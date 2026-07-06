@@ -121,7 +121,7 @@ tbody tr:last-child td { border-bottom: none; }
 .tierpill.tier-starter { background: rgba(34,176,122,.16); color: #17784f; }
 .tierpill.tier-rotation { background: rgba(120,130,150,.15); color: #59637a; }
 .tierpill.tier-flyer { background: rgba(120,130,150,.1); color: #8a93a5; }
-.paid { color: #b83b52; font-weight: 600; font-variant-numeric: tabular-nums; }
+.paid { color: #b83b52; font-weight: 700; font-size: 18px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 .btn.toggle-btn.active { background: var(--accent); color: #fff; border-color: transparent; }
 .pos-pill { color: var(--muted); font-size: 12px; }
 .up { color: var(--up); } .down { color: var(--down); }
@@ -245,10 +245,17 @@ tbody tr:last-child td { border-bottom: none; }
 .comps-table tbody tr { cursor: pointer; transition: background .12s; }
 .comps-table tbody tr:hover { background: rgba(0,0,0,0.045); }
 .comps-table td.fpg { color: inherit; font-weight: 400; }
-.comp-cell { display: inline-flex; align-items: center; gap: 9px; min-width: 0; }
-.comp-cell .art.sm { width: 26px; height: 26px; border-radius: 8px; flex: none; }
-.comp-name { font-weight: 600; font-size: 13px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.comp-team { color: var(--muted-2); font-size: 11px; font-weight: 500; }
+.comp-cell { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+.comp-cell .art.sm { width: 36px; height: 36px; border-radius: 10px; flex: none; }
+.comp-name { font-weight: 600; font-size: 14.5px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.comp-team { color: var(--muted-2); font-size: 12px; font-weight: 500; }
+
+/* ---- depth chart (bottom of player modal) ---- */
+.depth-table th, .depth-table td { text-align: center; }
+.depth-table td.dslot { cursor: pointer; font-size: 13.5px; white-space: nowrap; transition: background .12s; }
+.depth-table td.dslot:hover { background: rgba(0, 0, 0, 0.045); }
+.depth-table td.dslot.me { color: var(--accent); font-weight: 700; cursor: default; }
+.depth-table .rowlab { text-align: left; color: var(--muted-2); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; }
 
 /* ---- player modal overlay ---- */
 .modal-backdrop { position: fixed; inset: 0; z-index: 100; background: rgba(24, 20, 14, 0.42); backdrop-filter: blur(18px) saturate(115%); -webkit-backdrop-filter: blur(18px) saturate(115%); overflow-y: auto; padding: 30px 18px 70px; animation: fadeIn .2s ease both; }

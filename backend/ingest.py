@@ -128,6 +128,18 @@ def main() -> None:
     conn.commit()
     print("  free agents added: {}".format(n_fa))
 
+    print("== depth charts ==")
+    conn.execute("DELETE FROM depth_chart")
+    n_dc = 0
+    for t in teams:
+        for pos, slots in espn.get_depth_chart(t["id"], use_cache=not force).items():
+            for rank, aid in slots:
+                conn.execute("INSERT OR REPLACE INTO depth_chart (id_team, pos, depth, id_player) "
+                             "VALUES (?,?,?,?)", (t["id"], pos, rank, aid))
+                n_dc += 1
+    conn.commit()
+    print("  depth slots: {}".format(n_dc))
+
     print("== season stats ==")
     w = config.SCORING_WEIGHTS
     for yr in config.SEASON_YEARS:

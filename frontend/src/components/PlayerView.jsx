@@ -224,6 +224,34 @@ export default function PlayerView({ id, config, onBack, onOpen }) {
           </div>
         </div>
       ) : null}
+
+      {d.depth && (
+        <div className="glass card">
+          <h3>{p.team_name} depth chart</h3>
+          <div className="scroll-x">
+            <table className="stat-table depth-table">
+              <thead><tr>
+                <th className="left rowlab"></th>
+                {d.depth.positions.map((c) => <th key={c}>{c}</th>)}
+              </tr></thead>
+              <tbody>
+                {d.depth.grid.map((row, i) => (
+                  <tr key={i}>
+                    <td className="left rowlab">{['1st', '2nd', '3rd'][i] || (i + 1) + 'th'}</td>
+                    {row.map((cell, j) => (
+                      <td key={j}
+                        className={'dslot' + (cell && cell.id_player === p.id_player ? ' me' : '')}
+                        onClick={() => cell && cell.id_player !== p.id_player && onOpen && onOpen(cell.id_player)}>
+                        {cell ? cell.name : '—'}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   )

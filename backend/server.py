@@ -201,11 +201,26 @@ def player_detail(id_player: str, config: Optional[str] = None) -> Dict[str, Any
         breakdown = scoring.fp_breakdown(basis, w) if basis else []
         ts = scoring.true_shooting(basis) if basis else None
 
+        # Team depth chart as a grid: columns = positions, rows = 1st/2nd/... team.
+        depth = None
+        if player.get("id_team"):
+            drows = [dict(r) for r in conn.execute(
+                "SELECT d.pos, d.depth, d.id_player, p.name FROM depth_chart d "
+                "JOIN players p ON p.id_player = d.id_player "
+                "WHERE d.id_team=? ORDER BY d.depth", (player["id_team"],)).fetchall()]
+            if drows:
+                cols = [c for c in ("PG", "SG", "SF", "PF", "C") if any(r["pos"] == c for r in drows)]
+                bypos = {c: [r for r in drows if r["pos"] == c] for c in cols}
+                grid = [[({"id_player": bypos[c][i]["id_player"], "name": bypos[c][i]["name"]}
+                          if i < len(bypos[c]) else None) for c in cols]
+                        for i in range(max(len(v) for v in bypos.values()))]
+                depth = {"positions": cols, "grid": grid}
+
         team = conn.execute("SELECT * FROM teams WHERE id_team=?", (player.get("id_team"),)).fetchone()
         return {"player": player, "team": dict(team) if team else None, "score": score,
                 "seasons": seasons, "projection": projection, "breakdown": breakdown,
                 "basis_label": basis_label, "true_shooting": ts, "comps": comps,
-                "tier": _tier(score.get("value", 0))}
+                "depth": depth, "tier": _tier(score.get("value", 0))}
     finally:
         conn.close()
 

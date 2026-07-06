@@ -70,6 +70,12 @@ CREATE TABLE IF NOT EXISTS config (
     id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT
 );
 
+CREATE TABLE IF NOT EXISTS depth_chart (
+    id_team TEXT NOT NULL, pos TEXT NOT NULL, depth INTEGER NOT NULL,
+    id_player TEXT NOT NULL,
+    PRIMARY KEY (id_team, pos, depth)
+);
+
 CREATE INDEX IF NOT EXISTS idx_seasons_player ON player_seasons(id_player);
 """
 
