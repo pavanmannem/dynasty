@@ -213,7 +213,7 @@ def player_detail(id_player: str, config: Optional[str] = None) -> Dict[str, Any
                 bypos = {c: [r for r in drows if r["pos"] == c] for c in cols}
                 grid = [[({"id_player": bypos[c][i]["id_player"], "name": bypos[c][i]["name"]}
                           if i < len(bypos[c]) else None) for c in cols]
-                        for i in range(max(len(v) for v in bypos.values()))]
+                        for i in range(min(5, max(len(v) for v in bypos.values())))]
                 depth = {"positions": cols, "grid": grid}
 
         team = conn.execute("SELECT * FROM teams WHERE id_team=?", (player.get("id_team"),)).fetchone()

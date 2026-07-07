@@ -33,7 +33,7 @@ body {
 
 /* ---- header ---- */
 .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px; gap: 20px; flex-wrap: wrap; }
-.brand { font-family: var(--sans); font-style: italic; font-size: 32px; line-height: 1; letter-spacing: -0.02em; font-weight: 700; color: var(--accent); }
+.brand { font-family: var(--sans); font-size: 32px; line-height: 1; letter-spacing: -0.02em; font-weight: 700; color: var(--accent); }
 
 /* ---- glass / cards ---- */
 .glass {
@@ -252,6 +252,7 @@ tbody tr:last-child td { border-bottom: none; }
 
 /* ---- depth chart (bottom of player modal) ---- */
 .depth-table th, .depth-table td { text-align: center; }
+.depth-table th:last-child { color: inherit; font-weight: inherit; }  /* no FP/G gold here */
 .depth-table td.dslot { cursor: pointer; font-size: 13.5px; white-space: nowrap; transition: background .12s; }
 .depth-table td.dslot:hover { background: rgba(0, 0, 0, 0.045); }
 .depth-table td.dslot.me { color: var(--accent); font-weight: 700; cursor: default; }

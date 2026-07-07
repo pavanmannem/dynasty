@@ -207,9 +207,11 @@ export default function PlayerView({ id, config, onBack, onOpen }) {
                 <th key={h} className={i < 2 ? 'left' : ''}>{h}</th>)}
             </tr></thead>
             <tbody>
-              {proj && sc.from_projection && <StatRow label="2026-27" team="proj" s={{ ...proj }} cls="proj-row" computedPct />}
+              {/* Every player gets a 2026-27 forecast row: Sleeper's stat line when it
+                  exists, and the FP/G the model actually uses (production). */}
+              <StatRow label="2026-27" team="proj" s={{ ...(proj || {}), fpg: sc.production }} cls="proj-row" computedPct />
               {seasons.map((s) => <StatRow key={s.season} label={s.season} team={s.team} s={s} />)}
-              {seasons.length === 0 && !proj && <tr><td colSpan="16" className="left" style={{ color: 'var(--muted)' }}>No stats or projection available.</td></tr>}
+              {seasons.length === 0 && <tr><td colSpan="16" className="left" style={{ color: 'var(--muted)' }}>No NBA seasons yet — forecast only.</td></tr>}
             </tbody>
           </table>
         </div>
