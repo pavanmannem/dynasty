@@ -12,3 +12,4 @@ export const getPlayers = (config) => fetch('/api/players' + q(config)).then(jso
 export const getPlayer = (id, config) => fetch('/api/players/' + id + q(config)).then(json)
 export const getDraft = () => fetch('/api/draft').then(json)
 export const getRoom = (config) => fetch('/api/room' + q(config)).then(json)
+export const getStrategy = (config) => fetch('/api/strategy' + q(config)).then(json)

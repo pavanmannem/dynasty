@@ -41,6 +41,7 @@ const COLS = [
   { key: 'roi', label: 'ROI', xs: true },
   { key: 'value', label: 'Value' },
   { key: 'adj_value', label: 'Now', xs: true },
+  { key: 'exp_price', label: 'Exp', xs: true },
   { key: 'draft_price', label: 'Paid', xs: true },
   { key: 'market_delta', label: 'Δ', xs: true },
 ]
@@ -291,6 +292,7 @@ export default function RankingTable({ players, onSelect }) {
                 <td className="num hide-xs">{p.roi == null ? '—' : Number(p.roi).toFixed(2)}</td>
                 <td><span className="value"><span className="dollar">$</span>{Math.round(p.value)}</span></td>
                 <td className="num hide-xs">{p.adj_value != null ? <span className="nowv">${p.adj_value}</span> : '—'}</td>
+                <td className="num hide-xs">{p.exp_price != null ? <span className="expv">${p.exp_price}</span> : '—'}</td>
                 <td className="num hide-xs">{p.drafted && p.draft_price != null ? <span className="paid">${Math.round(p.draft_price)}</span> : '—'}</td>
                 <td className={'num hide-xs ' + (p.drafted && p.market_delta != null ? (p.market_delta > 0 ? 'up' : p.market_delta < 0 ? 'down' : '') : '')}>
                   {p.drafted && p.market_delta != null ? (p.market_delta > 0 ? '+$' + Math.round(p.market_delta) : '−$' + Math.abs(Math.round(p.market_delta))) : '—'}

@@ -95,7 +95,14 @@ def _load_all(conn, cfg: Dict[str, Any]) -> Dict[str, Any]:
     disc_money = money_left - slots_left  # every open slot still costs >= $1
     inflation = round(max(0.5, min(2.0, disc_money / disc_value)), 3) if disc_value > 0 else 1.0
     for s in ranked:
-        s["adj_value"] = round(s["value"] * inflation) if not s.get("drafted") else None
+        if s.get("drafted"):
+            s["adj_value"] = None
+            s["exp_price"] = None
+        else:
+            s["adj_value"] = round(s["value"] * inflation)
+            # What the room will likely pay: the MARKET's number (ADP curve),
+            # rescaled by the same live inflation. Our edge = adj_value - this.
+            s["exp_price"] = max(1, round((s.get("market_value") or s["value"]) * inflation))
     return {"cfg": cfg, "ranked": ranked, "seasons": seasons, "live": d_live,
             "inflation": inflation, "room_totals": {
                 "n_teams": n_teams, "budget": budget, "rounds": rounds,
@@ -124,7 +131,7 @@ _LIST_FIELDS = ("rank", "id_player", "name", "team", "position", "age", "latest_
                 "var", "drafted", "draft_price", "draft_owner", "market_delta",
                 "n_seasons", "experience", "injury_status", "headshot", "sleeper_rank", "watched",
                 "roi", "cost", "pos_rank", "name_premium", "model_value", "market_value", "fp_rank",
-                "adj_value")
+                "adj_value", "exp_price")
 
 
 @app.get("/api/meta")
@@ -180,6 +187,43 @@ def list_players(config: Optional[str] = None) -> List[Dict[str, Any]]:
         conn.close()
 
 
+def _owners_state(live: Dict[str, Any], ranked: List[Dict[str, Any]],
+                  budget: float, rounds: int) -> List[Dict[str, Any]]:
+    """Per-owner room economics: spent, remaining, max bid and pick ledger."""
+    val_by_key = {sleeper_draft.norm_name(s["name"]): s for s in ranked}
+    owners: Dict[str, Dict[str, Any]] = {}
+    for uid, name in (live.get("owners") or {}).items():
+        owners[uid] = {"user_id": uid, "name": name,
+                       "slot": (live.get("order") or {}).get(uid),
+                       "spent": 0, "picks": [],
+                       "me": uid == _config.MY_SLEEPER_USER_ID}
+    for p in live.get("picks") or []:
+        o = owners.get(p.get("owner_id"))
+        if o is None:
+            continue
+        v = val_by_key.get(p["key"])
+        amt = p.get("amount") or 0
+        o["spent"] += amt
+        o["picks"].append({"name": p["name"], "amount": amt,
+                           "id_player": v["id_player"] if v else None,
+                           "pos": (v.get("elig_pos") or v.get("sleeper_pos") or v.get("position") or "") if v else "",
+                           "production": round(v["production"], 1) if v else None,
+                           "value": round(v["value"]) if v else None,
+                           "delta": round(v["value"] - amt) if v else None})
+    out_owners = []
+    for o in owners.values():
+        left = budget - o["spent"]
+        open_slots = max(0, rounds - len(o["picks"]))
+        o.update(left=left, open_slots=open_slots,
+                 max_bid=max(0, left - max(0, open_slots - 1)),
+                 value_won=round(sum(p["value"] or 0 for p in o["picks"])),
+                 surplus=round(sum(p["delta"] or 0 for p in o["picks"])))
+        o["picks"].sort(key=lambda x: -(x["amount"] or 0))
+        out_owners.append(o)
+    out_owners.sort(key=lambda o: (o["slot"] or 99))
+    return out_owners
+
+
 @app.get("/api/room")
 def room(config: Optional[str] = None) -> Dict[str, Any]:
     """Live auction-room intelligence: per-owner budgets/max bids, market
@@ -191,36 +235,7 @@ def room(config: Optional[str] = None) -> Dict[str, Any]:
         ranked, live, inflation = la["ranked"], la["live"], la["inflation"]
         totals = la["room_totals"]
         budget, rounds = totals["budget"], totals["rounds"]
-
-        val_by_key = {sleeper_draft.norm_name(s["name"]): s for s in ranked}
-        owners: Dict[str, Dict[str, Any]] = {}
-        for uid, name in (live.get("owners") or {}).items():
-            owners[uid] = {"user_id": uid, "name": name,
-                           "slot": (live.get("order") or {}).get(uid),
-                           "spent": 0, "picks": [],
-                           "me": uid == _config.MY_SLEEPER_USER_ID}
-        for p in live.get("picks") or []:
-            o = owners.get(p.get("owner_id"))
-            if o is None:
-                continue
-            v = val_by_key.get(p["key"])
-            amt = p.get("amount") or 0
-            o["spent"] += amt
-            o["picks"].append({"name": p["name"], "amount": amt,
-                               "id_player": v["id_player"] if v else None,
-                               "value": round(v["value"]) if v else None,
-                               "delta": round(v["value"] - amt) if v else None})
-        out_owners = []
-        for o in owners.values():
-            left = budget - o["spent"]
-            open_slots = max(0, rounds - len(o["picks"]))
-            o.update(left=left, open_slots=open_slots,
-                     max_bid=max(0, left - max(0, open_slots - 1)),
-                     value_won=round(sum(p["value"] or 0 for p in o["picks"])),
-                     surplus=round(sum(p["delta"] or 0 for p in o["picks"])))
-            o["picks"].sort(key=lambda x: -(x["amount"] or 0))
-            out_owners.append(o)
-        out_owners.sort(key=lambda o: (o["slot"] or 99))
+        out_owners = _owners_state(live, ranked, budget, rounds)
 
         # The lot currently on the block (live auction metadata).
         meta = live.get("metadata") or {}
@@ -248,14 +263,12 @@ def room(config: Optional[str] = None) -> Dict[str, Any]:
         me = next((o for o in out_owners if o["me"]), None)
         my_max = me["max_bid"] if me else budget
 
-        def exp_price(s):  # what the room will likely pay: market $ x live inflation
-            return max(1, round((s.get("market_value") or s["value"]) * inflation))
         slim = lambda s: {"id_player": s["id_player"], "name": s["name"],
                           "headshot": s.get("headshot"), "value": round(s["value"]),
-                          "adj_value": s.get("adj_value"), "exp_price": exp_price(s)}
+                          "adj_value": s.get("adj_value"), "exp_price": s.get("exp_price")}
         # Targets: our adjusted value beats the expected price, and we can afford it.
-        targets = sorted((s for s in undrafted if exp_price(s) <= my_max and s["value"] >= 5),
-                         key=lambda s: -((s.get("adj_value") or 0) - exp_price(s)))[:8]
+        targets = sorted((s for s in undrafted if s["exp_price"] <= my_max and s["value"] >= 5),
+                         key=lambda s: -((s.get("adj_value") or 0) - s["exp_price"]))[:8]
         # Nominations: the room pays far above our number -> make rivals spend.
         noms = sorted((s for s in undrafted if s.get("market_value")),
                       key=lambda s: -(s["market_value"] - s["value"]))[:6]
@@ -272,6 +285,107 @@ def room(config: Optional[str] = None) -> Dict[str, Any]:
                 "owners": out_owners, "lot": lot, "supply": supply,
                 "targets": [slim(s) for s in targets],
                 "nominate": [slim(s) for s in noms]}
+    finally:
+        conn.close()
+
+
+_SLOT_GROUPS = {"G": ("PG", "SG"), "F": ("SF", "PF")}
+
+
+@app.get("/api/strategy")
+def strategy(config: Optional[str] = None) -> Dict[str, Any]:
+    """My-team plan for the rest of the draft: what to target and what to pay,
+    scored on market edge + minutes (depth chart) + age upside + health."""
+    conn = db.connect()
+    try:
+        cfg = _cfg_from_request(config, conn)
+        la = _load_all(conn, cfg)
+        ranked, live, inflation = la["ranked"], la["live"], la["inflation"]
+        totals = la["room_totals"]
+        owners = _owners_state(live, ranked, totals["budget"], totals["rounds"])
+        me = next((o for o in owners if o["me"]), None)
+        if me is None:
+            return {"me": None, "inflation": inflation}
+
+        # Which starting slots do my picks already cover? (greedy, best value
+        # into the most specific open slot; leftovers are bench)
+        st = live.get("settings") or {}
+        open_req = {"PG": st.get("slots_pg", 1), "SG": st.get("slots_sg", 1),
+                    "SF": st.get("slots_sf", 1), "PF": st.get("slots_pf", 1),
+                    "C": st.get("slots_c", 1), "G": st.get("slots_g", 1),
+                    "F": st.get("slots_f", 1), "UTIL": st.get("slots_util", 3)}
+        for p in sorted(me["picks"], key=lambda x: -(x["value"] or 0)):
+            elig = [x.strip() for x in (p.get("pos") or "").split(",") if x.strip()]
+            filled = next((pos for pos in elig if open_req.get(pos, 0) > 0), None)
+            if not filled:
+                filled = next((g for g, mem in _SLOT_GROUPS.items()
+                               if open_req.get(g, 0) > 0 and any(x in mem for x in elig)), None)
+            if not filled and open_req.get("UTIL", 0) > 0 and elig:
+                filled = "UTIL"
+            if filled:
+                open_req[filled] -= 1
+            p["fills"] = filled or "BN"
+        needs = {k: v for k, v in open_req.items() if v > 0}
+
+        # Depth-chart standing = minutes security (1st team > deep bench).
+        depth = {}
+        for r in conn.execute("SELECT id_player, pos, MIN(depth) AS depth "
+                              "FROM depth_chart GROUP BY id_player").fetchall():
+            depth[r["id_player"]] = {"pos": r["pos"], "depth": r["depth"]}
+
+        my_max = max(1, me["max_bid"])
+        cands = []
+        for s in ranked:
+            if s.get("drafted") or s["exp_price"] > my_max:
+                continue
+            edge = (s.get("adj_value") or 0) - s["exp_price"]
+            if edge < 1 and s["value"] < 5:
+                continue
+            badges, bonus = [], 0.0
+            dep = depth.get(s["id_player"])
+            if dep and dep["depth"] <= 2:
+                badges.append("{}{} on depth".format(dep["pos"], dep["depth"]))
+                bonus += 3.0 if dep["depth"] == 1 else 1.5
+            age = s.get("age")
+            if age is not None and age <= 23:
+                badges.append("age {}".format(int(round(age))))
+                bonus += 2.0
+            inj = s.get("injury_status") or ""
+            if inj and inj != "Active":
+                badges.append(inj)
+                bonus -= 4.0 if inj in ("Out", "OFS") else 1.5
+            elif s.get("n_seasons") and (s.get("gp_rate") or 0) >= 0.85:
+                badges.append("durable")
+                bonus += 1.0
+            elig = [x.strip() for x in (s.get("elig_pos") or s.get("sleeper_pos") or "").split(",") if x.strip()]
+            fills = next((p for p in elig if needs.get(p)), None) or \
+                next((g for g, mem in _SLOT_GROUPS.items()
+                      if needs.get(g) and any(x in mem for x in elig)), None)
+            if fills:
+                badges.append("fills " + fills)
+                bonus += 2.0
+            cands.append({"id_player": s["id_player"], "name": s["name"],
+                          "headshot": s.get("headshot"), "pos": "/".join(elig) or s.get("position"),
+                          "age": int(round(age)) if age is not None else None,
+                          "production": round(s.get("production") or 0, 1),
+                          "value": round(s["value"]), "adj_value": s.get("adj_value"),
+                          "exp_price": s["exp_price"], "edge": round(edge + bonus, 1),
+                          "badges": badges})
+        cands.sort(key=lambda t: -t["edge"])
+
+        # Budget walk: suggest a bid per remaining slot, always keeping $1 for
+        # every slot still to fill afterwards.
+        plan, rem = [], me["left"]
+        for t in cands[: me["open_slots"]]:
+            reserve = me["open_slots"] - len(plan) - 1
+            bid = min(max(1, rem - reserve), t["exp_price"] + (1 if t["edge"] >= 10 else 0))
+            plan.append(dict(t, suggest=bid))
+            rem -= bid
+
+        return {"inflation": inflation, "status": live.get("status"),
+                "me": me, "needs": needs, "plan": plan,
+                "more": cands[me["open_slots"]: me["open_slots"] + 12],
+                "planned_spend": me["left"] - rem}
     finally:
         conn.close()
 

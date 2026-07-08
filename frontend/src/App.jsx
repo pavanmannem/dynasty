@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react'
-import { getMeta, getPlayers, getDraft, getRoom } from './api.js'
+import { getMeta, getPlayers, getDraft, getRoom, getStrategy } from './api.js'
 import RankingTable from './components/RankingTable.jsx'
 import PlayerView from './components/PlayerView.jsx'
 import DraftRoom from './components/DraftRoom.jsx'
+import StrategyView from './components/StrategyView.jsx'
 
 const STORE = 'dynasty_config_v1'
 
@@ -14,6 +15,8 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [draft, setDraft] = useState(null)
   const [room, setRoom] = useState(null)
+  const [strat, setStrat] = useState(null)
+  const [view, setView] = useState('draft')
 
   // Initialise: pull meta, seed config from localStorage or the bundled defaults.
   useEffect(() => {
@@ -41,6 +44,7 @@ export default function App() {
     const t = setTimeout(() => {
       getPlayers(config).then((p) => { setPlayers(p); setLoading(false) })
       getRoom(config).then(setRoom).catch(() => {})
+      getStrategy(config).then(setStrat).catch(() => {})
     }, 220)
     return () => clearTimeout(t)
   }, [config, lastPickNo])
@@ -48,7 +52,10 @@ export default function App() {
   // The lot moves faster than picks land — keep the room fresh on its own clock too.
   useEffect(() => {
     if (!config) return
-    const iv = setInterval(() => getRoom(config).then(setRoom).catch(() => {}), 15000)
+    const iv = setInterval(() => {
+      getRoom(config).then(setRoom).catch(() => {})
+      getStrategy(config).then(setStrat).catch(() => {})
+    }, 15000)
     return () => clearInterval(iv)
   }, [config])
 
@@ -58,10 +65,16 @@ export default function App() {
     <div className="app">
       <div className="topbar">
         <div className="brand">dynasty maxxing</div>
+        <div className="tabs">
+          {['draft', 'players', 'strategy'].map((t) => (
+            <button key={t} className={'tab' + (view === t ? ' active' : '')} onClick={() => setView(t)}>{t}</button>
+          ))}
+        </div>
       </div>
 
-      <DraftRoom room={room} onOpen={setSelected} />
-      <RankingTable players={players} onSelect={setSelected} />
+      {view === 'draft' && <DraftRoom room={room} onOpen={setSelected} />}
+      {view === 'players' && <RankingTable players={players} onSelect={setSelected} />}
+      {view === 'strategy' && <StrategyView data={strat} onOpen={setSelected} />}
       {selected && <PlayerView key={selected} id={selected} config={config} onBack={() => setSelected(null)} onOpen={setSelected} />}
     </div>
   )
