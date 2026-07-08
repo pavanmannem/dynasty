@@ -250,6 +250,44 @@ tbody tr:last-child td { border-bottom: none; }
 .comp-name { font-weight: 600; font-size: 14.5px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .comp-team { color: var(--muted-2); font-size: 12px; font-weight: 500; }
 
+/* ---- draft room panel ---- */
+.room { margin-bottom: 16px; padding: 0; overflow: hidden; }
+.room-head { display: flex; align-items: center; gap: 14px; padding: 12px 16px; cursor: pointer; flex-wrap: wrap; }
+.room-title { font-weight: 700; font-size: 14px; letter-spacing: .02em; }
+.chip-live { font-size: 10px; font-weight: 800; letter-spacing: .1em; color: #fff; background: var(--down); border-radius: 20px; padding: 2px 8px; animation: pulse 1.6s ease infinite; }
+@keyframes pulse { 50% { opacity: 0.55; } }
+.room-stat { font-size: 12.5px; color: var(--muted); }
+.room-stat b { color: var(--ink); }
+.room-chev { margin-left: auto; color: var(--muted-2); }
+.room-body { padding: 0 16px 14px; }
+.lot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--glass-2); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; margin-bottom: 12px; }
+.lot .art.sm { width: 30px; height: 30px; border-radius: 8px; }
+.lot-name { font-weight: 700; cursor: pointer; }
+.lot-bid { font-size: 12.5px; color: var(--muted); }
+.lot-val { font-size: 12.5px; font-weight: 600; }
+.lot-verdict { font-size: 11px; font-weight: 800; letter-spacing: .06em; padding: 2px 8px; border-radius: 20px; }
+.lot-verdict.up { background: rgba(47, 122, 74, 0.14); }
+.lot-verdict.down { background: rgba(184, 59, 82, 0.12); }
+.lot-timer, .lot-passed { font-size: 11.5px; color: var(--muted-2); }
+.room-table { min-width: 520px; font-size: 13px; }
+.room-table tbody tr { cursor: pointer; }
+.room-table tr.me-row td { background: rgba(216, 106, 41, 0.08); font-weight: 600; }
+.room-table tr.owner-picks td { background: var(--glass-2); font-size: 12px; }
+.opick { display: inline-block; margin: 2px 10px 2px 0; cursor: pointer; white-space: nowrap; }
+.room-cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; margin-top: 12px; }
+@media (max-width: 860px) { .room-cols { grid-template-columns: 1fr; } }
+.room-list-head { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; color: var(--muted); margin-bottom: 7px; }
+.room-target { display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer; }
+.room-target .art.sm { width: 24px; height: 24px; border-radius: 7px; }
+.rt-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rt-nums { margin-left: auto; font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+.rt-exp { color: var(--muted-2); font-weight: 500; }
+.supply-row { display: flex; align-items: baseline; gap: 8px; padding: 4px 0; font-size: 12.5px; }
+.sp-pos { font-weight: 700; width: 24px; }
+.sp-cnt { color: var(--muted); white-space: nowrap; }
+.sp-top { color: var(--muted-2); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nowv { font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; }
+
 /* ---- depth chart (bottom of player modal) ---- */
 .depth-table th, .depth-table td { text-align: center; }
 .depth-table th:last-child { color: inherit; font-weight: inherit; }  /* no FP/G gold here */

@@ -25,6 +25,8 @@ DRAFT_ID = os.environ.get("SLEEPER_DRAFT_ID", "1375883645973176320")
 # Watched-players list is user-specific -> needs a Sleeper session token. Set via
 # env only (never commit it). Empty => the watched filter is simply disabled.
 SLEEPER_TOKEN = os.environ.get("SLEEPER_TOKEN", "")
+# Which draft slot is "me" in the room panel (pavannextdoor).
+MY_SLEEPER_USER_ID = os.environ.get("MY_SLEEPER_USER_ID", "334510166290468864")
 
 # --- League scoring (Westlake 512 — exact points settings) -----------------
 # Applied to per-game averages. Missed FG/FT are derived (attempts - makes).

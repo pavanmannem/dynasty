@@ -19,7 +19,7 @@ _cache: Dict[str, Any] = {"ts": 0.0, "draft_id": None, "data": None}
 
 _QUERY = (
     'query get_draft {{ '
-    'get_draft(sport: "nba", draft_id: "{did}"){{ status type }} '
+    'get_draft(sport: "nba", draft_id: "{did}"){{ status type settings metadata draft_order }} '
     'user_drafts_by_draft(draft_id: "{did}"){{ user_id user_display_name }} '
     'draft_picks(draft_id: "{did}"){{ pick_no picked_by player_id metadata }} '
     '}}'
@@ -37,7 +37,8 @@ def norm_name(s: str) -> str:
 
 
 def _empty() -> Dict[str, Any]:
-    return {"picks": [], "status": None, "type": None}
+    return {"picks": [], "status": None, "type": None,
+            "owners": {}, "order": {}, "settings": {}, "metadata": {}}
 
 
 def fetch_draft(draft_id: str, use_cache: bool = True) -> Dict[str, Any]:
@@ -77,9 +78,12 @@ def fetch_draft(draft_id: str, use_cache: bool = True) -> Dict[str, Any]:
         picks.append({
             "name": name, "key": norm_name(name), "amount": amt,
             "owner": owners.get(p.get("picked_by")) or p.get("picked_by"),
+            "owner_id": p.get("picked_by"),
             "pick_no": p.get("pick_no"),
         })
-    out = {"picks": picks, "status": gd.get("status"), "type": gd.get("type")}
+    out = {"picks": picks, "status": gd.get("status"), "type": gd.get("type"),
+           "owners": owners, "order": gd.get("draft_order") or {},
+           "settings": gd.get("settings") or {}, "metadata": gd.get("metadata") or {}}
     _cache.update(ts=now, draft_id=draft_id, data=out)
     return out
 

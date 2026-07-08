@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react'
-import { getMeta, getPlayers, getDraft } from './api.js'
+import { getMeta, getPlayers, getDraft, getRoom } from './api.js'
 import RankingTable from './components/RankingTable.jsx'
 import PlayerView from './components/PlayerView.jsx'
+import DraftRoom from './components/DraftRoom.jsx'
 
 const STORE = 'dynasty_config_v1'
 
@@ -12,6 +13,7 @@ export default function App() {
   const [selected, setSelected] = useState(null)
   const [loading, setLoading] = useState(true)
   const [draft, setDraft] = useState(null)
+  const [room, setRoom] = useState(null)
 
   // Initialise: pull meta, seed config from localStorage or the bundled defaults.
   useEffect(() => {
@@ -32,15 +34,23 @@ export default function App() {
     return () => { stop = true; clearInterval(iv) }
   }, [])
 
-  // Refetch the board on config change (debounced) OR when a new pick lands.
+  // Refetch the board + room on config change (debounced) OR when a new pick lands.
   const lastPickNo = draft?.latest?.pick_no ?? null
   useEffect(() => {
     if (!config) return
     const t = setTimeout(() => {
       getPlayers(config).then((p) => { setPlayers(p); setLoading(false) })
+      getRoom(config).then(setRoom).catch(() => {})
     }, 220)
     return () => clearTimeout(t)
   }, [config, lastPickNo])
+
+  // The lot moves faster than picks land — keep the room fresh on its own clock too.
+  useEffect(() => {
+    if (!config) return
+    const iv = setInterval(() => getRoom(config).then(setRoom).catch(() => {}), 15000)
+    return () => clearInterval(iv)
+  }, [config])
 
   if (loading || !config) return <div className="app"><div className="loading">Loading…</div></div>
 
@@ -50,6 +60,7 @@ export default function App() {
         <div className="brand">dynasty maxxing</div>
       </div>
 
+      <DraftRoom room={room} onOpen={setSelected} />
       <RankingTable players={players} onSelect={setSelected} />
       {selected && <PlayerView key={selected} id={selected} config={config} onBack={() => setSelected(null)} onOpen={setSelected} />}
     </div>

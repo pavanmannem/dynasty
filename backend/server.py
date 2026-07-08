@@ -77,7 +77,30 @@ def _load_all(conn, cfg: Dict[str, Any]) -> Dict[str, Any]:
     for i, s in enumerate(sorted([x for x in ranked if x.get("adp_dynasty")],
                                  key=lambda x: x["adp_dynasty"]), 1):
         s["sleeper_rank"] = i
-    return {"cfg": cfg, "ranked": ranked, "seasons": seasons}
+
+    # Live auction inflation: remaining room money vs remaining rosterable value.
+    # Static values assume the full $4800 chases the full board; as picks land,
+    # over/under-spending shifts what the REST of the board will actually cost.
+    d_live = sleeper_draft.fetch_draft(_config.DRAFT_ID)
+    st = d_live.get("settings") or {}
+    n_teams = st.get("teams") or cfg.get("n_teams", 12)
+    budget = st.get("budget") or cfg.get("budget_per_team", 400)
+    rounds = st.get("rounds") or cfg.get("roster_spots", 24)
+    picks = d_live.get("picks") or []
+    slots_left = max(0, n_teams * rounds - len(picks))
+    money_left = n_teams * budget - sum(p.get("amount") or 0 for p in picks)
+    undrafted = sorted((s for s in ranked if not s.get("drafted")),
+                       key=lambda s: -s["value"])[:slots_left]
+    disc_value = sum(max(0.0, s["value"] - 1.0) for s in undrafted)
+    disc_money = money_left - slots_left  # every open slot still costs >= $1
+    inflation = round(max(0.5, min(2.0, disc_money / disc_value)), 3) if disc_value > 0 else 1.0
+    for s in ranked:
+        s["adj_value"] = round(s["value"] * inflation) if not s.get("drafted") else None
+    return {"cfg": cfg, "ranked": ranked, "seasons": seasons, "live": d_live,
+            "inflation": inflation, "room_totals": {
+                "n_teams": n_teams, "budget": budget, "rounds": rounds,
+                "slots_left": slots_left, "money_left": money_left,
+                "value_left": round(disc_value + slots_left)}}
 
 
 def _tier(v: float) -> str:
@@ -100,7 +123,8 @@ _LIST_FIELDS = ("rank", "id_player", "name", "team", "position", "age", "latest_
                 "raw_score", "value", "auto_value",
                 "var", "drafted", "draft_price", "draft_owner", "market_delta",
                 "n_seasons", "experience", "injury_status", "headshot", "sleeper_rank", "watched",
-                "roi", "cost", "pos_rank", "name_premium", "model_value", "market_value", "fp_rank")
+                "roi", "cost", "pos_rank", "name_premium", "model_value", "market_value", "fp_rank",
+                "adj_value")
 
 
 @app.get("/api/meta")
@@ -152,6 +176,102 @@ def list_players(config: Optional[str] = None) -> List[Dict[str, Any]]:
             row["tier"] = _tier(s["value"])
             out.append(row)
         return out
+    finally:
+        conn.close()
+
+
+@app.get("/api/room")
+def room(config: Optional[str] = None) -> Dict[str, Any]:
+    """Live auction-room intelligence: per-owner budgets/max bids, market
+    inflation, the current lot, and target/nomination recommendations."""
+    conn = db.connect()
+    try:
+        cfg = _cfg_from_request(config, conn)
+        la = _load_all(conn, cfg)
+        ranked, live, inflation = la["ranked"], la["live"], la["inflation"]
+        totals = la["room_totals"]
+        budget, rounds = totals["budget"], totals["rounds"]
+
+        val_by_key = {sleeper_draft.norm_name(s["name"]): s for s in ranked}
+        owners: Dict[str, Dict[str, Any]] = {}
+        for uid, name in (live.get("owners") or {}).items():
+            owners[uid] = {"user_id": uid, "name": name,
+                           "slot": (live.get("order") or {}).get(uid),
+                           "spent": 0, "picks": [],
+                           "me": uid == _config.MY_SLEEPER_USER_ID}
+        for p in live.get("picks") or []:
+            o = owners.get(p.get("owner_id"))
+            if o is None:
+                continue
+            v = val_by_key.get(p["key"])
+            amt = p.get("amount") or 0
+            o["spent"] += amt
+            o["picks"].append({"name": p["name"], "amount": amt,
+                               "id_player": v["id_player"] if v else None,
+                               "value": round(v["value"]) if v else None,
+                               "delta": round(v["value"] - amt) if v else None})
+        out_owners = []
+        for o in owners.values():
+            left = budget - o["spent"]
+            open_slots = max(0, rounds - len(o["picks"]))
+            o.update(left=left, open_slots=open_slots,
+                     max_bid=max(0, left - max(0, open_slots - 1)),
+                     value_won=round(sum(p["value"] or 0 for p in o["picks"])),
+                     surplus=round(sum(p["delta"] or 0 for p in o["picks"])))
+            o["picks"].sort(key=lambda x: -(x["amount"] or 0))
+            out_owners.append(o)
+        out_owners.sort(key=lambda o: (o["slot"] or 99))
+
+        # The lot currently on the block (live auction metadata).
+        meta = live.get("metadata") or {}
+        lot = None
+        pid = meta.get("nominated_player_id")
+        if pid and live.get("status") in ("drafting", "paused"):
+            row = conn.execute("SELECT id_player FROM projections WHERE sleeper_pid=?",
+                               (str(pid),)).fetchone()
+            ps = next((s for s in ranked if row and s["id_player"] == row["id_player"]), None)
+            try:
+                bid = int(meta.get("highest_offer") or 0)
+            except (TypeError, ValueError):
+                bid = 0
+            lot = {"bid": bid,
+                   "leader": (live.get("owners") or {}).get(meta.get("offering_user_id")),
+                   "nominator": (live.get("owners") or {}).get(meta.get("nominating_user_id")),
+                   "timer_end": meta.get("timer_end_at"),
+                   "passed": len([x for x in (meta.get("passed_slots") or "").split(",") if x])}
+            if ps:
+                lot.update(id_player=ps["id_player"], name=ps["name"],
+                           headshot=ps.get("headshot"), value=round(ps["value"]),
+                           adj_value=ps.get("adj_value"), production=ps.get("production"))
+
+        undrafted = [s for s in ranked if not s.get("drafted")]
+        me = next((o for o in out_owners if o["me"]), None)
+        my_max = me["max_bid"] if me else budget
+
+        def exp_price(s):  # what the room will likely pay: market $ x live inflation
+            return max(1, round((s.get("market_value") or s["value"]) * inflation))
+        slim = lambda s: {"id_player": s["id_player"], "name": s["name"],
+                          "headshot": s.get("headshot"), "value": round(s["value"]),
+                          "adj_value": s.get("adj_value"), "exp_price": exp_price(s)}
+        # Targets: our adjusted value beats the expected price, and we can afford it.
+        targets = sorted((s for s in undrafted if exp_price(s) <= my_max and s["value"] >= 5),
+                         key=lambda s: -((s.get("adj_value") or 0) - exp_price(s)))[:8]
+        # Nominations: the room pays far above our number -> make rivals spend.
+        noms = sorted((s for s in undrafted if s.get("market_value")),
+                      key=lambda s: -(s["market_value"] - s["value"]))[:6]
+
+        # Starter-or-better supply left at each position.
+        supply = {}
+        for pos in ("PG", "SG", "SF", "PF", "C"):
+            pool = [s for s in undrafted if pos in (s.get("elig_pos") or s.get("sleeper_pos") or "")]
+            supply[pos] = {"star": sum(1 for s in pool if s["value"] >= 60),
+                           "starter": sum(1 for s in pool if 25 <= s["value"] < 60),
+                           "top": [s["name"] for s in sorted(pool, key=lambda x: -x["value"])[:2]]}
+
+        return {"inflation": inflation, "status": live.get("status"), **totals,
+                "owners": out_owners, "lot": lot, "supply": supply,
+                "targets": [slim(s) for s in targets],
+                "nominate": [slim(s) for s in noms]}
     finally:
         conn.close()
 
